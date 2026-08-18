@@ -258,7 +258,7 @@ commit: e0ac76720265609d63249fed630016821659b679
 10. 当前真实状态：Stage 4.5 Core 6/6 已关闭；Stage 5 MySQL 3/3 已真实通过；Stage 5 Redis 连接兼容修复已完成，3 条 Redis Regression 仍需用户本机重新运行后才能标记真实通过。
 
 
-### 0.16 V3.2 Stage 5 真实关闭与 Stage 6 CI/CD 候选版
+### 0.16 V3.2.2 Stage 5 真实关闭与 Stage 6 CI/CD 平台验收进行中
 
 用户确认 V3.1.1 修复后的 Regression 已在 Windows 真实环境通过，因此 Stage 5 正式关闭。本版本进入 Stage 6，并继续坚持“AI 辅助接口自动化测试框架是主体，真实 SUT 只是接入对象”的架构边界：
 
@@ -272,8 +272,24 @@ commit: e0ac76720265609d63249fed630016821659b679
 8. 新增 `tests/integration/test_ci_contract.py`，TDD RED 阶段先因 workflow/Jenkinsfile 缺失得到 3 failures，配置创建后 3/3 GREEN；该测试同时禁止公共 CI 写死 `shortlink-local`、本地域名、业务表名和 Redis Key；
 9. 新增 `docs/10_CI-CD接入说明.md`，说明 GitHub Actions/Jenkins/Artifact 的职责、真实本地 SUT 的网络限制、Windows/Linux Agent 和参数化执行方式；
 10. 当前工作树验证：framework tests `104 passed`、默认 Mock 全量 `110 passed`、`python run.py --env test --level smoke` 为 `2 passed / 4 deselected`，当前真实 SUT Smoke/Core/Regression collection 均为 `6/18 selected`，compileall PASS；
-11. Stage 6 当前代码与离线契约已完成，但**GitHub Actions 云端绿色 Run 和 Jenkins 真实 Pipeline Run 仍属于平台验收项**；在用户真正 push 仓库/创建 Jenkins Pipeline 之前，不把离线 YAML/Groovy 静态契约冒充平台运行证据；
+11. Stage 6 当前代码与离线契约已完成；用户已将仓库首次 push 到 GitHub，`API Autotest Framework CI` 云端 Run 为绿色且成功生成 Artifact，因此 **GitHub Actions 真实平台验收已完成**；Jenkins 真实 Pipeline Run 仍属于待完成的平台验收项；
 12. 用户新增交付规则：若后续只是修改单个文件，只交付该文件的替换版，不重新压缩整个项目；只有多文件阶段性改造才生成完整项目包；项目计划书每次修改仍必须同步更新。
+13. 用户已完成第二次 push（清理 `.idea/` 后），GitHub Actions 再次绿色且 Artifact 正常生成；因此 GitHub Actions 公共框架 CI 已获得**连续两次真实云端成功证据**，当前 Stage 6 唯一剩余平台验收项切换为 Jenkins Pipeline。
+
+
+### 0.17 V3.2.3 Jenkins Windows 首次真实 Pipeline 排障与编码隔离修复
+
+Jenkins 已在用户 Windows 本机完成安装并创建 `Pipeline script from SCM` Job。当前真实平台证据进一步更新如下：
+
+1. Jenkins 能从公开 GitHub 仓库读取根目录 `Jenkinsfile`，说明 Job 的 SCM URL、`main` 分支、Script Path 与 Pipeline-as-Code 配置均已正确建立；
+2. 第一次 Build 在 Checkout 阶段因 `github.com:443` 临时连接失败而中止；第二次 Build 已成功执行 `git fetch` 并 checkout `main` 最新提交，因此该网络失败按真实证据判定为瞬时连接问题，不修改 Jenkinsfile，也不增加 Git 凭据；
+3. 第二次 Build 进入 `Install Dependencies` 后，Jenkins Windows Service 调用到系统可见的 `D:\Anaconda3\python.exe`，pip 在中文 Windows 区域设置下使用 CP936/GBK 解码 UTF-8 的 `requirements-dev.txt`，触发 `UnicodeDecodeError: 'gbk' codec can't decode ...`；
+4. GitHub 仓库中的 `requirements-dev.txt`、`requirements.txt` 与 `constraints.txt` 均为 UTF-8，且包含中文说明，因此失败根因是 Jenkins Service 的 Python 默认文本编码环境，而不是依赖声明本身错误；
+5. Jenkinsfile 的定向修复是在 Pipeline 进程树内设置 `PYTHONUTF8=1`，不修改整台 Windows 的全局编码；Python 官方说明该变量会启用 UTF-8 Mode，适合避免 Windows ANSI Code Page 造成的 UTF-8 文本读取问题；
+6. 同一次定向修复把 Jenkins 当前找到的系统 Python 仅作为“创建 Workspace 虚拟环境”的引导解释器：每次 Build 重新创建 `.venv`，依赖安装和 `run.py` 执行均改用 `.venv` 内解释器，避免 Jenkins 将测试依赖直接安装进用户 Anaconda Base；
+7. Jenkinsfile 仍只消费通用 `ENV_NAME` / `LEVEL` 和统一 `run.py`，未新增短链接环境名、域名、表名或 Redis Key；Windows/Linux 双平台分支继续保留；
+8. 修复前定向契约检查对 `PYTHONUTF8`、`.venv`、Windows/Unix 虚拟环境解释器均为 false；修复后全部为 true，既有 `tests/integration/test_ci_contract.py` 保持 `3 passed`；
+9. 当前 Jenkins 真实平台状态仍为**验收进行中**：Checkout 已真实成功，下一步需用户提交新的 Jenkinsfile 后再次 Build，目标先完成 `ENV_NAME=test / LEVEL=smoke` 的 Mock Pipeline，再进入真实 SUT 参数化验证。
 
 
 ---
@@ -1763,7 +1779,7 @@ docs/10_面试讲解稿.md
 | 阶段 4：短链接真实 Happy Path | **已完成** | 用户 Windows 六条真实 Smoke：`6 passed in 9.65s`，含 Redirect/Stats/Cleanup |
 | 阶段 4.5：异常/边界真实用例 | **已完成** | 用户 Windows Core 6/6 真实通过，Sentinel 前置限流有界重试已获得真实运行证据 |
 | 阶段 5：通用数据源断言 + 真实 SUT 验证 | **已完成** | 用户确认完整 Regression 6/6 真实通过；通用 MySQL/Redis YAML 断言与当前 SUT 深层校验均完成 |
-| 阶段 6：CI/CD | **代码完成，待平台验收** | GitHub Actions 公共框架 CI + Jenkins 参数化真实环境 Pipeline + 报告归档已实现 |
+| 阶段 6：CI/CD | **GitHub Actions 已真实通过，Jenkins 待验收** | GitHub Actions 公共框架 CI 已连续两次获得绿色 Run + Artifact 真实证据；Jenkins 参数化真实环境 Pipeline 待平台执行 |
 | 阶段 7：AI 辅助 | 未开始 | 用例草稿生成 + 失败分析 |
 | 阶段 8：最终整理 | 未开始 | README、架构图、简历、面试材料 |
 
@@ -1774,7 +1790,7 @@ docs/10_面试讲解稿.md
 - Stage 2 已完成 Mock、VariableContext、断言增强、异常链路与框架测试保障；
 - Stage 3 已完成正式 `core/ + utils/ + testcases/` 架构迁移，并删除旧目录入口；
 - Stage 3 基线为框架自身 57 条、全量 63 条；当前 Stage 4 Redirect YAML 主链纠正后沙箱框架自身测试为 83 passed、默认离线全量为 89 passed；
-- Stage 5 已将 MySQL / Redis 直连能力收敛为通用 `db/` Client + `AssertionEngine` YAML 数据源断言，并由用户确认当前真实 SUT Regression 6/6 通过；Stage 6 GitHub Actions/Jenkins 配置已实现并通过离线契约，真实 CI 平台 Run 待用户验收；AI 尚未实现；
+- Stage 5 已将 MySQL / Redis 直连能力收敛为通用 `db/` Client + `AssertionEngine` YAML 数据源断言，并由用户确认当前真实 SUT Regression 6/6 通过；Stage 6 GitHub Actions/Jenkins 配置已实现并通过离线契约；GitHub Actions 已获得用户 GitHub 仓库绿色 Run + Artifact 真实平台证据，Jenkins 真实 Pipeline 仍待验收；AI 尚未实现；
 - Stage 4 已完成真实 SaaS 源码和运行链路分析，确认 Gateway 鉴权、gid 前置、HTTP Host/serverName 对 fullShortUrl 的影响、Redis Stream 最终一致性和 ShardingSphere 边界；
 - 已通过手工真实请求定位并验证 `enableStatus` 缺失导致统计 `data:null` 的真实缺陷，同时确认旧 Nginx 构建包与最新 Vue 源码不一致；
 - Stage 4 已把登录、分组、创建、分页、302 跳转、异步统计和回收站清理作为真实 SUT 接入框架并获得 `6 passed`；Stage 4.5 Core 已真实 6/6；Stage 5 Regression 已真实 6/6；Stage 6 当前只增加可复用 CI 调度和报告归档，不继续扩张当前 SUT 用例数量。
@@ -1977,14 +1993,14 @@ docs/10_面试讲解稿.md
 Stage 5 已由用户确认真实验收通过，当前唯一行动转入 Stage 6 CI/CD：
 
 ```text
-1. 将 V3.2 推送到用户自己的 GitHub 仓库
-2. 在 Actions 页面观察 API Autotest Framework CI 的首次真实云端运行
-3. 确认 framework tests、Mock smoke、compileall 均为绿色
-4. 即使失败，也确认 CI evidence Artifact 被保留
+1. GitHub 首次 push：已完成
+2. API Autotest Framework CI 首次云端 Run：已绿色通过
+3. CI evidence Artifact：已真实生成并可见
+4. 清理首次提交误跟踪的 `.idea/`，并在 `.gitignore` 中永久忽略 IDE 本地配置
 5. 在可访问目标测试环境的 Jenkins 节点创建 Pipeline from SCM
 6. 先以 ENV_NAME=test / LEVEL=smoke 验证 Jenkins 框架 Mock 流程
 7. 再按需要选择真实环境 YAML 与 smoke/core/regression，记录 JUnit/Artifact 证据
-8. GitHub Actions + Jenkins 都获得真实平台证据后关闭 Stage 6，进入 Stage 7 AI
+8. Jenkins 获得真实平台证据后关闭 Stage 6，进入 Stage 7 AI
 ```
 
 Stage 6 坚持：
@@ -2267,13 +2283,13 @@ Stage 3 已完成后，可以使用以下阶段性描述：
 - Stage 4.5：6 条 Core 已由用户 Windows 真实验证为 6/6，Sentinel 前置限流有界重试已通过真实运行
 - 登录凭据：当前 SUT 已迁移到 env.shortlink-local.yaml，不再要求终端 export；这是通用 `${config(section,key)}` 的真实使用示例
 - Stage 5：通用 MySQL/Redis Client、YAML 数据源断言、YAML marker/poll、环境 suite 选择已实现并由用户确认真实 Regression 6/6 通过
-- Stage 6：GitHub Actions 公共框架 CI、参数化 Jenkinsfile、JUnit/Allure/run.json/日志归档已实现并通过离线契约；真实平台 Run 待验收
+- Stage 6：GitHub Actions 公共框架 CI、参数化 Jenkinsfile、JUnit/Allure/run.json/日志归档已实现并通过离线契约；GitHub Actions 已获得绿色 Run + Artifact 真实证据，Jenkins 真实 Pipeline 待验收
 
 当前真实证据边界：
 - Stage 4：已真实通过
 - Stage 4.5：用户 Windows 真实 Core 6/6，已完成
 - Stage 5：用户确认完整 Regression 6/6 已真实通过，已完成
-- Stage 6：代码/离线契约完成；GitHub Actions/Jenkins 真实平台执行证据待验收
+- Stage 6：代码/离线契约完成；GitHub Actions 真实平台已验收通过，Jenkins 真实 Pipeline 证据待验收
 
 下一路线：
 Stage 6 平台验收 -> Stage 7 AI -> Stage 8 项目/简历/面试收尾
@@ -2281,4 +2297,4 @@ Stage 6 平台验收 -> Stage 7 AI -> Stage 8 项目/简历/面试收尾
 
 ---
 
-**文档状态：V3.2。项目定位保持“AI 辅助接口自动化测试框架”，短链接仅为当前真实 SUT。Stage 4/4.5/5 已完成真实验收；Stage 6 的 GitHub Actions、Jenkins 参数化 Pipeline 与报告归档已实现并通过离线契约，等待 GitHub/Jenkins 真实平台 Run 证据后关闭 Stage 6。**
+**文档状态：V3.2.3。项目定位保持“AI 辅助接口自动化测试框架”，短链接仅为当前真实 SUT。Stage 4/4.5/5 已完成真实验收；Stage 6 的 GitHub Actions 已连续获得绿色 Run + Artifact 真实平台证据。Jenkins 已真实完成 SCM/Jenkinsfile 获取与代码 Checkout，当前针对 Windows Service 的 UTF-8 编码和 Python 环境隔离问题完成 Jenkinsfile 定向修复，待重新 Build 验证 Mock Pipeline 后继续真实 SUT 验收。**
