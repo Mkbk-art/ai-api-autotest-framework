@@ -13,4 +13,7 @@ logs/*
 extract.yaml
 .env
 
+# IDE / editor local project metadata
+.idea/
+
 .worktrees/
