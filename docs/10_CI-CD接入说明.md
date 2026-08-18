@@ -1,8 +1,28 @@
-# Stage 6：CI/CD 与报告归档说明
+# Stage 6：CI/CD、外部私有环境配置与报告归档说明
 
-## 1. 为什么同时使用 GitHub Actions 和 Jenkins
+## 1. 项目边界：框架是主体，真实项目只是接入示例
 
-本项目是 **AI 辅助接口自动化测试框架**，短链接 SaaS 只是当前真实被测系统。两类 CI 的职责因此分开：
+本项目定位始终是 **AI 辅助接口自动化测试框架**。当前短链接 SaaS 只是第一个完成真实接入、数据库/Redis 深层校验和 Jenkins 验收的 SUT，用于证明框架可以落地到真实系统；它不进入框架核心，也不进入公共 CI 的业务逻辑。
+
+```text
+Framework Core
+├─ ConfigManager / VariableContext / ApiRunner / AssertionEngine
+├─ MySQL / Redis 通用 Client
+├─ run.py
+└─ CI 调度契约
+        ↓
+Project Adapter
+├─ config/env.<project>.yaml
+└─ testcases/<project>/
+        ↓
+Real SUT
+```
+
+以后接入订单、支付、用户中心等项目时，目标是新增环境 YAML 与 `testcases/<project>/`，而不是修改框架核心。
+
+## 2. 为什么同时使用 GitHub Actions 和 Jenkins
+
+两类 CI 的职责分开：
 
 ```text
 GitHub Actions
@@ -12,12 +32,82 @@ GitHub Actions
 Jenkins
 → 运行在能够访问目标 SUT 的节点
 → 通过 ENV_NAME + LEVEL 调用统一 run.py
+→ 可选 ENV_FILE 读取 Jenkins Agent 仓库外私有 YAML
 → 可执行真实项目 smoke/core/regression
 ```
 
-GitHub 托管 Runner 中的 `127.0.0.1` 指向 GitHub 的临时虚拟机，而不是开发者 Windows，所以公共 workflow 不应该直接运行只存在于本机的真实环境。
+GitHub 托管 Runner 中的 `127.0.0.1` 指向 GitHub 的临时虚拟机，而不是开发者 Windows，所以公共 workflow 不直接运行只存在于本机的真实环境。
 
-## 2. GitHub Actions 公共框架 CI
+## 3. 公共环境 YAML 与仓库外私有覆盖 YAML
+
+### 3.1 公共环境 YAML
+
+真实项目仍可以把下面这些内容上传到 GitHub 供别人参考：
+
+```text
+config/env.<project>.yaml
++ testcases/<project>/
+```
+
+公共环境 YAML 保存：
+
+- API host、timeout、TLS 等环境级参数；
+- `test_selection.include_suites`；
+- 当前 Project Adapter 所需的非敏感结构；
+- MySQL/Redis 数据源结构；
+- 敏感字段的 `CHANGE_ME` 占位符。
+
+这样别人可以完整看到“一个真实项目如何接入框架”，但仓库里没有你的真实密码。
+
+### 3.2 外部私有覆盖 YAML
+
+真实账号、数据库密码以及某台机器独有的差异，放在 **Git 仓库外** 的 YAML。它不需要复制整份公共环境，只写需要覆盖的字段即可。
+
+ConfigManager 的最终优先级是：
+
+```text
+CLI 覆盖
+> API_* 环境变量覆盖
+> 外部环境 YAML
+> config/env.<name>.yaml
+> config/config.yaml
+```
+
+例如当前真实项目的公开参考模板位于：
+
+```text
+docs/examples/env.shortlink-local.override.example.yaml
+```
+
+实际 Jenkins 副本建议放到类似：
+
+```text
+C:\ProgramData\Jenkins\.jenkins\private-configs\<project>.override.yaml
+```
+
+该路径位于仓库外，因此不会被 `git add`、GitHub Actions 或普通代码提交带走。
+
+## 4. run.py 的通用外部环境能力
+
+本地命令可以直接使用：
+
+```bash
+python run.py --env <project> --env-file "<仓库外覆盖 YAML 路径>" --level smoke
+```
+
+`--env-file` 只传“文件路径”，真实账号和密码仍然写在 YAML 中，不放在命令行参数里。
+
+如果 CI 更适合环境变量方式，也可以只设置：
+
+```text
+API_TEST_ENV_FILE=<仓库外覆盖 YAML 路径>
+```
+
+Pytest collection hooks、fixtures 和统一 Runner 都通过同一个 ConfigManager 读取该文件，因此不会出现 Runner 使用一份配置、collection 又读取另一份配置的问题。
+
+如果用户显式指定的外部文件不存在，ConfigManager 会立即报 `FileNotFoundError`，而不是静默回退到公共 YAML 的 `CHANGE_ME` 后再产生误导性的业务接口失败。
+
+## 5. GitHub Actions 公共框架 CI
 
 文件：
 
@@ -25,11 +115,7 @@ GitHub 托管 Runner 中的 `127.0.0.1` 指向 GitHub 的临时虚拟机，而�
 .github/workflows/api-test.yml
 ```
 
-触发方式：
-
-- `push`；
-- `pull_request`；
-- `workflow_dispatch` 手工触发。
+触发方式：`push`、`pull_request`、`workflow_dispatch`。
 
 执行链：
 
@@ -51,44 +137,11 @@ compileall
 
 `env=test` 是框架受控 Mock 环境。它通过环境 YAML 选择 Demo suite，并由 fixture 自动启动随机本地端口的 Mock Server，因此 GitHub Runner 不需要真实 Gateway、MySQL、Redis 或第三方域名。
 
-### 2.1 为什么同时跑 `tests/` 和 Demo smoke
+公共 CI 同时跑 `tests/` 和 Demo smoke，是因为前者验证框架内部契约，后者从正式用户入口验证 YAML → Pytest → Fixture → ApiRunner → RequestClient → Assertions 完整主链。
 
-两者验证层级不同：
+## 6. Jenkins 参数化 Pipeline
 
-- `python -m pytest tests`：验证 VariableContext、AssertionEngine、CaseLoader、数据源 Client、Runner、架构守门等框架内部契约；
-- `python run.py --env test --level smoke`：从用户正式入口验证 YAML -> Pytest -> Fixture -> ApiRunner -> RequestClient -> Assertions 的完整 Mock 主链。
-
-因此不是重复执行。
-
-### 2.2 Artifact 中保存什么
-
-GitHub Actions 无论测试成功还是失败都会尝试上传：
-
-```text
-reports/ci/
-reports/runs/github-actions-demo/
-logs/
-```
-
-其中可能包含：
-
-- `framework-junit.xml`；
-- Demo `junit.xml`；
-- `allure-results/`；
-- `run.json`；
-- 运行日志。
-
-如果测试已经失败，Artifact 仍保留，方便下载后定位，而不是 Runner 销毁后只剩一个红叉。
-
-## 3. Jenkins 参数化 Pipeline
-
-文件：
-
-```text
-Jenkinsfile
-```
-
-Jenkinsfile 不写死任何具体项目，只暴露两个参数：
+Jenkinsfile 现在只暴露三个 **框架级** 参数：
 
 ```text
 ENV_NAME
@@ -96,124 +149,92 @@ ENV_NAME
 
 LEVEL
 → smoke / core / regression
+
+ENV_FILE
+→ 可选的 Jenkins Agent 仓库外环境覆盖 YAML 路径
+→ 留空时不启用外部覆盖
 ```
 
-例如框架 Mock：
+Jenkinsfile 不包含任何当前真实项目的环境名、域名、表名、Redis Key、用户名或密码。
+
+### 6.1 Mock / 公共环境
 
 ```text
 ENV_NAME = test
-LEVEL = smoke
+LEVEL    = smoke
+ENV_FILE = 留空
 ```
 
-如果 Jenkins Agent 就运行在能访问某个真实 SUT 的机器上，则把 `ENV_NAME` 填成该环境 YAML 的名称即可。
-
-Jenkins 最终始终调用：
-
-```bash
-python run.py --env "<ENV_NAME>" --level "<LEVEL>" --run-id "jenkins-<BUILD_NUMBER>"
-```
-
-所以新增其他真实项目时，CI 不需要知道项目叫什么。
-
-## 4. Windows / Linux Agent 兼容
-
-Jenkinsfile 使用：
+### 6.2 任意真实 SUT
 
 ```text
-isUnix() == true  → sh
-isUnix() == false → bat
+ENV_NAME = <真实项目环境名>
+LEVEL    = smoke/core/regression
+ENV_FILE = <该 Jenkins Agent 上的仓库外覆盖 YAML 路径>
 ```
 
-因此一份 Jenkinsfile 可以在 Linux Agent 或 Windows Agent 上工作。
+Pipeline 只把 `ENV_FILE` 的 **路径** 临时注入测试进程树：
 
-Windows 本机执行真实项目时需要保证：
+```text
+ENV_FILE parameter
+        ↓
+API_TEST_ENV_FILE
+        ↓
+run.py
+        ↓
+ConfigManager
+```
 
-1. Jenkins 服务账号能够执行 `python`；
-2. Python 环境已能安装项目依赖；
-3. 被测服务/MySQL/Redis 已启动；
-4. 本地域名映射等 SUT 自己的运行条件已经准备好；
-5. 对应 `config/env.<name>.yaml` 已配置正确。
+不会执行下面这种复制：
 
-这些属于具体 SUT 的环境准备，不写进公共 Jenkinsfile。
+```text
+private YAML → Jenkins Workspace
+```
 
-## 5. Jenkins 报告归档
+因此真实凭据不会形成 Workspace 持久副本，也不会进入 `reports/`、`logs/` 或 Artifact 归档规则。
+
+## 7. Windows / Linux Agent 兼容
+
+Jenkinsfile 使用 `isUnix()` 分别选择 `sh` / `bat`，并在每次构建创建 Workspace 独立 `.venv`。Windows Pipeline 同时启用 `PYTHONUTF8=1`，解决中文系统 Service 场景下 pip 读取 UTF-8 requirements 时的 CP936/GBK 解码问题。
+
+真实项目运行前，Jenkins Agent 只需要满足：
+
+1. 能执行系统 Python 以创建 `.venv`；
+2. 能访问目标 SUT；
+3. 目标 SUT 自己依赖的 MySQL/Redis/域名映射等已经准备好；
+4. 如需私有覆盖，`ENV_FILE` 指向的文件对 Jenkins Service 账号可读。
+
+这些都是“目标环境准备”，不写入公共 Jenkinsfile。
+
+## 8. 报告与 Artifact
 
 无论测试通过还是失败，`post { always { ... } }` 都执行：
 
 ```text
 junit
-→ 读取 reports/runs/**/junit.xml
-→ Jenkins 页面展示 Test Result
+→ reports/runs/**/junit.xml
+→ Jenkins Test Result
 
 archiveArtifacts
-→ 保存 reports/runs/**/*
-→ 保存 logs/**/*
+→ reports/runs/**/*
+→ logs/**/*
 ```
 
-当前不强制依赖 Jenkins Allure 插件。原始 `allure-results` 会作为 Artifact 保存；如果以后在 Jenkins 安装 Allure 插件，可以再增加可视化展示，但它不是框架运行的前置条件。
+外部环境 YAML 不在归档路径内。当前不强制 Jenkins Allure 插件；原始 `allure-results` 作为 Artifact 保存即可。
 
-## 6. 为什么 CI 不能重新实现 Runner 逻辑
+## 9. 已完成的真实 Stage 6 证据
 
-不推荐下面这种方式：
+当前已经真实验证：
 
 ```text
-Jenkins/GitHub Actions
-→ 自己拼 pytest -m ...
-→ 自己判断 suite
-→ 自己定义报告目录
+GitHub Actions 公共 CI                       ✅
+Jenkins 从 GitHub SCM Checkout               ✅
+Windows Workspace 独立 .venv                 ✅
+依赖自动安装                                 ✅
+ENV_NAME / LEVEL 参数化                      ✅
+Mock smoke                                   ✅ 2 passed
+JUnit Test Result                            ✅
+Artifacts(logs + reports/runs/<run-id>)      ✅
 ```
 
-因为这会形成第二套执行入口。
-
-当前统一关系：
-
-```text
-CI 平台
-↓
-run.py
-↓
-ConfigManager
-↓
-Pytest collection
-↓
-YAML level/tags + include_suites
-↓
-ApiRunner
-```
-
-所以本地、Jenkins 与后续其他 CI 平台共享同一语义。
-
-## 7. 常用执行方式
-
-### GitHub Actions
-
-提交到 GitHub 后自动触发，也可以在仓库 Actions 页面手工运行 `API Autotest Framework CI`。
-
-### Jenkins Mock 验证
-
-```text
-ENV_NAME=test
-LEVEL=smoke
-```
-
-### Jenkins 真实 SUT 验证
-
-先确保 Jenkins Agent 能访问目标环境，然后：
-
-```text
-ENV_NAME=<真实环境配置名>
-LEVEL=smoke/core/regression
-```
-
-## 8. Stage 6 验收边界
-
-Stage 6 可由本地离线测试证明的内容：
-
-- GitHub workflow 结构；
-- Action 主版本；
-- framework/Mock 执行入口；
-- Jenkins 参数化设计；
-- JUnit/Artifact 失败后归档；
-- 公共 CI 无当前 SUT 业务硬编码。
-
-只有真正把仓库 push 到 GitHub 后产生绿色 workflow run，才能把“GitHub Actions 云端运行通过”标记为真实平台证据；只有 Jenkins 实际创建 Pipeline 并执行成功，才能把“Jenkins Pipeline 真实运行通过”标记为真实平台证据。
+外部私有 YAML 机制在本版本已完成代码与离线契约验证；真实 SUT 的 Jenkins smoke 仍需在用户本机以实际私有覆盖文件执行后，才能标记为真实平台验收通过。

@@ -1,48 +1,53 @@
 /*
  * AI 辅助接口自动化测试框架的参数化 Jenkins Pipeline。
  *
- * Jenkinsfile 只负责“选择环境 -> 准备隔离 Python 环境 -> 安装依赖 -> 调用统一 run.py -> 归档证据”，
- * 不知道当前接入的是短链接、订单还是其他 SUT。只要目标 Jenkins Agent 能访问对应环境，
- * 就可以通过 ENV_NAME 切换，无需修改 Pipeline 本身。
+ * Jenkinsfile 只负责“选择环境 -> 准备隔离 Python 环境 -> 安装依赖 -> 调用统一 run.py -> 归档证据”。
+ * ENV_FILE 只是一个可选的仓库外 YAML 路径：Pipeline 不读取其中字段、不复制文件内容，也不知道
+ * 当前接入的是哪一种业务系统。新增其他真实 SUT 时继续复用同一条 Pipeline。
  */
 pipeline {
-    // any 允许 Jenkins 根据现有节点资源调度；实际真实 SUT 可以部署在 Windows 或 Linux Agent。
+    // any 允许 Jenkins 根据现有节点资源调度；真实 SUT 可以部署在 Windows 或 Linux Agent 可访问的位置。
     agent any
 
-    // Jenkins Windows Service 常运行在中文系统区域设置下，Python 可能默认使用 CP936/GBK。
-    // 项目依赖文件统一保存为 UTF-8，因此仅在本 Pipeline 进程树中启用 Python UTF-8 Mode，
-    // 避免修改整台 Windows 的全局编码设置，也不会影响开发者自己的其他 Python 程序。
+    // Windows Service 常运行在中文系统区域设置下，Python 可能默认使用 CP936/GBK。
+    // 项目文本统一 UTF-8，因此仅在当前 Pipeline 进程树启用 Python UTF-8 Mode，不改整机全局设置。
     environment {
         PYTHONUTF8 = '1'
     }
 
-    // 关闭同一 Job 的并发执行，避免多个回归同时操作共享测试环境而互相污染测试数据。
     options {
-        // 已显式定义 Checkout stage，因此关闭 Declarative Pipeline 的隐式默认 checkout，避免重复拉取。
+        // 已显式定义 Checkout stage，关闭 Declarative Pipeline 的隐式 checkout，避免重复拉取。
         skipDefaultCheckout(true)
-        // 同一 Job 不并发执行，避免共享测试环境发生数据互相污染。
+        // 同一 Job 不并发执行，避免多个构建同时操作共享测试环境而互相污染数据。
         disableConcurrentBuilds()
     }
 
     parameters {
-        // 环境名直接对应 config/env.<name>.yaml；使用自由字符串才能在新增项目时保持 Jenkinsfile 不变。
+        // ENV_NAME 只对应 config/env.<name>.yaml 的逻辑名称；它不是任何具体项目枚举。
         string(
             name: 'ENV_NAME',
             defaultValue: 'test',
-            description: '环境配置名称，对应 config/env.<name>.yaml，例如 test 或其他真实项目环境'
+            description: '环境配置名称，对应 config/env.<name>.yaml；新增真实项目无需修改 Jenkinsfile'
         )
-        // 层级是框架级稳定语义，可以安全作为固定 choice，而不包含任何具体业务模块名称。
+        // LEVEL 是框架级稳定语义，由统一 run.py 转换成 Pytest marker 选择。
         choice(
             name: 'LEVEL',
             choices: ['smoke', 'core', 'regression'],
             description: '选择本次执行的测试层级'
+        )
+        // ENV_FILE 只保存“外部覆盖 YAML 路径”。留空时完全沿用仓库公开配置，适合 Mock/公共环境。
+        // 真实凭据仍由用户在仓库外 YAML 中编辑，不进入 Jenkinsfile、Git 历史或命令行参数值。
+        string(
+            name: 'ENV_FILE',
+            defaultValue: '',
+            description: '可选：Jenkins Agent 上的外部环境覆盖 YAML 路径；留空则只使用仓库配置'
         )
     }
 
     stages {
         stage('Checkout') {
             steps {
-                // 从 Jenkins Job 配置的 SCM 获取当前项目；Pipeline 不写死仓库地址或分支。
+                // 仓库地址和分支继续由 Jenkins Job 的 SCM 配置决定，Pipeline 本身不写死源代码位置。
                 checkout scm
             }
         }
@@ -50,22 +55,17 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 script {
-                    // Jenkins Service 当前能找到哪个系统 Python，只把它当作“创建隔离虚拟环境”的引导解释器。
-                    // 这样不会把 pytest/requests 等测试依赖直接安装进机器上的 Anaconda Base 或其他全局环境。
+                    // 系统 Python 只负责创建当前 Workspace 的隔离 .venv，避免污染 Anaconda Base/全局环境。
                     if (isUnix()) {
-                        // 每次构建重新创建 .venv，避免上一次构建残留的包版本影响本次结果。
                         sh 'rm -rf .venv'
                         sh 'python --version'
                         sh 'python -m venv .venv'
-                        // 后续所有 pip 命令都使用 Workspace 内的虚拟环境解释器，确保安装和运行使用同一 Python。
                         sh '.venv/bin/python -m pip install --upgrade pip'
                         sh '.venv/bin/python -m pip install -r requirements-dev.txt -c constraints.txt'
                     } else {
-                        // Windows Jenkins Agent 使用 bat；先删除旧虚拟环境，再从当前可用 Python 创建全新的 .venv。
                         bat 'if exist .venv rmdir /s /q .venv'
                         bat 'python --version'
                         bat 'python -m venv .venv'
-                        // PYTHONUTF8=1 由 Pipeline environment 注入，因此 pip 读取 UTF-8 requirements 时不再回退到 CP936。
                         bat '.venv\\Scripts\\python.exe -m pip install --upgrade pip'
                         bat '.venv\\Scripts\\python.exe -m pip install -r requirements-dev.txt -c constraints.txt'
                     }
@@ -76,16 +76,33 @@ pipeline {
         stage('Run API Tests') {
             steps {
                 script {
-                    // run_id 使用 Jenkins BUILD_NUMBER，后续 JUnit/Allure/run.json 能直接对应某次构建。
+                    // BUILD_NUMBER 进入 run_id，Jenkins Build、JUnit、Allure Results 与日志可以一一对应。
                     def runId = "jenkins-${env.BUILD_NUMBER}"
-                    // 测试必须继续复用统一 run.py；唯一变化是使用本次构建自己的 .venv Python，
-                    // 从而保证“安装依赖的解释器”和“执行测试的解释器”完全一致。
-                    if (isUnix()) {
-                        def command = ".venv/bin/python run.py --env \"${params.ENV_NAME}\" --level \"${params.LEVEL}\" --run-id \"${runId}\""
-                        sh command
+                    // 私有文件参数先 trim；空字符串代表“不开启外部覆盖”，保持现有公共/Mock 行为。
+                    def envFile = params.ENV_FILE?.trim()
+
+                    // 显式指定文件却不存在时立即停止，不让框架误用公开 YAML 中的占位值继续跑业务请求。
+                    if (envFile && !fileExists(envFile)) {
+                        error("ENV_FILE does not exist on Jenkins Agent: ${envFile}")
+                    }
+
+                    // 运行命令始终只包含 ENV_NAME/LEVEL/run-id；真实 YAML 内容从不拼入 Console Output。
+                    def runCommand = {
+                        if (isUnix()) {
+                            sh ".venv/bin/python run.py --env \"${params.ENV_NAME}\" --level \"${params.LEVEL}\" --run-id \"${runId}\""
+                        } else {
+                            bat ".venv\\Scripts\\python.exe run.py --env \"${params.ENV_NAME}\" --level \"${params.LEVEL}\" --run-id \"${runId}\""
+                        }
+                    }
+
+                    if (envFile) {
+                        // 仅把“路径”临时注入本次测试进程树；ConfigManager 负责读取/合并 YAML。
+                        // 不 copy 到 Workspace，也不会被 reports/logs 的 Artifact 规则归档。
+                        withEnv(["API_TEST_ENV_FILE=${envFile}"]) {
+                            runCommand()
+                        }
                     } else {
-                        def command = ".venv\\Scripts\\python.exe run.py --env \"${params.ENV_NAME}\" --level \"${params.LEVEL}\" --run-id \"${runId}\""
-                        bat command
+                        runCommand()
                     }
                 }
             }
@@ -94,10 +111,10 @@ pipeline {
 
     post {
         always {
-            // JUnit 让 Jenkins 页面直接展示通过/失败数量；即使用例失败也会在 post 阶段记录结果。
+            // JUnit 让 Jenkins 页面直接展示通过/失败数量；即使用例失败也保留机器可读测试证据。
             junit testResults: 'reports/runs/**/junit.xml', allowEmptyResults: true
 
-            // 保存 Allure Results、run.json、JUnit 以及框架日志；无需强制安装 Jenkins Allure 插件。
+            // 只归档报告与日志，不归档任何外部环境 YAML。
             archiveArtifacts(
                 artifacts: 'reports/runs/**/*, logs/**/*',
                 allowEmptyArchive: true,

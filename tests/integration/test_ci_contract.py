@@ -69,6 +69,11 @@ def test_jenkins_pipeline_is_parameterized_and_archives_evidence():
     # LEVEL 只依赖框架已经稳定的 smoke/core/regression 三层语义。
     assert "name: 'LEVEL'" in text
     assert "smoke" in text and "core" in text and "regression" in text
+    # ENV_FILE 只是一个可选“外部环境 YAML 路径”，不承载用户名、密码或任何 SUT 业务字段。
+    assert "name: 'ENV_FILE'" in text
+    # Jenkins 通过框架通用 API_TEST_ENV_FILE 把路径传给 ConfigManager，不复制私有文件到 Workspace。
+    assert "API_TEST_ENV_FILE" in text
+    assert "fileExists" in text
     # Jenkins 只调用统一 Runner；环境和层级由参数传入，避免形成第二套调度实现。
     assert "run.py --env" in text
     assert "ENV_NAME" in text and "LEVEL" in text

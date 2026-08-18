@@ -1,8 +1,8 @@
 # AI 辅助接口自动化测试框架项目计划书
 
-> **版本**：V3.1.1
-> **更新日期**：2026-08-17
-> **当前阶段**：项目定位严格保持“AI 辅助接口自动化测试框架”；Stage 4.5 Core 已由用户 Windows 真实验证为 6/6。Stage 5 通用 MySQL/Redis Client + YAML 数据源断言已完成，其中短链接 SUT 的 3 条 MySQL Regression 已真实通过；3 条 Redis Regression 因 redis-py 8 默认 RESP3 与本地 Redis/代理不支持 `HELLO 3` 的协议兼容问题尚未完成业务断言。V3.1.1 已把 RESP 协议收敛为通用 `data_sources.redis.<source>.protocol` 配置并默认 RESP2，等待用户重新执行 Regression 验收。
+> **版本**：V3.2.6
+> **更新日期**：2026-08-18
+> **当前阶段**：项目定位严格保持“AI 辅助接口自动化测试框架”。Stage 4/4.5/5 已完成真实 SUT 验收；GitHub Actions 已真实绿色，Jenkins Build #10 已完成 `env=test + smoke` 的 2/2 Mock 主链、JUnit 与 Artifacts。V3.2.6 新增框架通用外部环境 YAML 覆盖能力；真实 SUT Jenkins smoke 待最终执行。
 > **文档用途**：记录项目背景、仓库核查结论、技术路线、阶段任务、验收标准、风险约束和后续交付物，作为后续开发、AI 协作、项目移交、简历整理和面试准备的统一依据。
 
 ---
@@ -290,6 +290,20 @@ Jenkins 已在用户 Windows 本机完成安装并创建 `Pipeline script from S
 7. Jenkinsfile 仍只消费通用 `ENV_NAME` / `LEVEL` 和统一 `run.py`，未新增短链接环境名、域名、表名或 Redis Key；Windows/Linux 双平台分支继续保留；
 8. 修复前定向契约检查对 `PYTHONUTF8`、`.venv`、Windows/Unix 虚拟环境解释器均为 false；修复后全部为 true，既有 `tests/integration/test_ci_contract.py` 保持 `3 passed`；
 9. 当前 Jenkins 真实平台状态仍为**验收进行中**：Checkout 已真实成功，下一步需用户提交新的 Jenkinsfile 后再次 Build，目标先完成 `ENV_NAME=test / LEVEL=smoke` 的 Mock Pipeline，再进入真实 SUT 参数化验证。
+
+
+### 0.18 V3.2.4 Jenkins Mock Pipeline 真实绿色验收
+
+用户已在 Jenkins Windows 本机对修复后的 Jenkinsfile 完成再次真实 Build，Stage 6 平台证据更新如下：
+
+1. Jenkins 成功从 GitHub `main` 分支 checkout 提交 `c3c056af762c18e57513998fab1c0414fd62a79e`，提交信息为 `fix: isolate Jenkins Python environment`；
+2. `Install Dependencies` 阶段成功识别 Python 3.12.3，并在 Jenkins Workspace 内重新创建 `.venv`，随后使用 `.venv\Scripts\python.exe` 升级 pip 和安装 `requirements-dev.txt -c constraints.txt`；
+3. 上一轮 CP936/GBK 解码错误未再出现，证明 `PYTHONUTF8=1` 与 Workspace 虚拟环境隔离修复在真实 Jenkins Windows Service 中生效；
+4. `Run API Tests` 阶段通过统一入口执行 `.venv\Scripts\python.exe run.py --env "test" --level "smoke" --run-id "jenkins-10"`；
+5. Pytest 共收集 6 条 Demo 用例，按 smoke 层级选择 2 条、deselect 4 条，最终 `2 passed, 4 deselected in 0.85s`；
+6. Jenkins 成功生成 `reports/runs/jenkins-10/junit.xml`，`post` 阶段正常执行 JUnit 结果记录与 Artifact 归档，Pipeline 最终状态为 `SUCCESS`；
+7. 因此 Stage 6 的 **GitHub Actions 公共 CI** 与 **Jenkins 本机 Mock CI** 均已获得真实绿色平台证据；
+8. Stage 6 尚保留最后一项增强验收：在不把真实账号密码提交到公共 GitHub 的前提下，通过 Jenkins 参数化方式执行当前真实短链接 SUT 的 `smoke`，确认 Jenkins 节点对真实 Gateway/Project 服务的访问与私有环境 YAML 注入方式；完成后即可正式关闭 Stage 6 并进入 Stage 7 AI。
 
 
 ---
@@ -1779,7 +1793,7 @@ docs/10_面试讲解稿.md
 | 阶段 4：短链接真实 Happy Path | **已完成** | 用户 Windows 六条真实 Smoke：`6 passed in 9.65s`，含 Redirect/Stats/Cleanup |
 | 阶段 4.5：异常/边界真实用例 | **已完成** | 用户 Windows Core 6/6 真实通过，Sentinel 前置限流有界重试已获得真实运行证据 |
 | 阶段 5：通用数据源断言 + 真实 SUT 验证 | **已完成** | 用户确认完整 Regression 6/6 真实通过；通用 MySQL/Redis YAML 断言与当前 SUT 深层校验均完成 |
-| 阶段 6：CI/CD | **GitHub Actions 已真实通过，Jenkins 待验收** | GitHub Actions 公共框架 CI 已连续两次获得绿色 Run + Artifact 真实证据；Jenkins 参数化真实环境 Pipeline 待平台执行 |
+| 阶段 6：CI/CD | **GitHub Actions + Jenkins Mock 已真实通过，真实 SUT Jenkins 验收待完成** | GitHub Actions 公共框架 CI 已连续两次绿色；Jenkins Windows `test/smoke` 已真实 SUCCESS 并生成 JUnit/Artifact；下一步只做真实短链接 SUT 参数化 smoke 验收 |
 | 阶段 7：AI 辅助 | 未开始 | 用例草稿生成 + 失败分析 |
 | 阶段 8：最终整理 | 未开始 | README、架构图、简历、面试材料 |
 
@@ -1790,7 +1804,7 @@ docs/10_面试讲解稿.md
 - Stage 2 已完成 Mock、VariableContext、断言增强、异常链路与框架测试保障；
 - Stage 3 已完成正式 `core/ + utils/ + testcases/` 架构迁移，并删除旧目录入口；
 - Stage 3 基线为框架自身 57 条、全量 63 条；当前 Stage 4 Redirect YAML 主链纠正后沙箱框架自身测试为 83 passed、默认离线全量为 89 passed；
-- Stage 5 已将 MySQL / Redis 直连能力收敛为通用 `db/` Client + `AssertionEngine` YAML 数据源断言，并由用户确认当前真实 SUT Regression 6/6 通过；Stage 6 GitHub Actions/Jenkins 配置已实现并通过离线契约；GitHub Actions 已获得用户 GitHub 仓库绿色 Run + Artifact 真实平台证据，Jenkins 真实 Pipeline 仍待验收；AI 尚未实现；
+- Stage 5 已将 MySQL / Redis 直连能力收敛为通用 `db/` Client + `AssertionEngine` YAML 数据源断言，并由用户确认当前真实 SUT Regression 6/6 通过；Stage 6 GitHub Actions/Jenkins 配置已实现并通过离线契约；GitHub Actions 已获得连续绿色 Run + Artifact 真实平台证据，Jenkins Windows `ENV_NAME=test / LEVEL=smoke` 也已真实 SUCCESS 并成功记录 JUnit/归档 Artifact；当前只剩真实短链接 SUT 的 Jenkins 参数化 smoke 验收；AI 尚未实现；
 - Stage 4 已完成真实 SaaS 源码和运行链路分析，确认 Gateway 鉴权、gid 前置、HTTP Host/serverName 对 fullShortUrl 的影响、Redis Stream 最终一致性和 ShardingSphere 边界；
 - 已通过手工真实请求定位并验证 `enableStatus` 缺失导致统计 `data:null` 的真实缺陷，同时确认旧 Nginx 构建包与最新 Vue 源码不一致；
 - Stage 4 已把登录、分组、创建、分页、302 跳转、异步统计和回收站清理作为真实 SUT 接入框架并获得 `6 passed`；Stage 4.5 Core 已真实 6/6；Stage 5 Regression 已真实 6/6；Stage 6 当前只增加可复用 CI 调度和报告归档，不继续扩张当前 SUT 用例数量。
@@ -1990,17 +2004,18 @@ docs/10_面试讲解稿.md
 
 ## 10. 当前下一步行动清单
 
-Stage 5 已由用户确认真实验收通过，当前唯一行动转入 Stage 6 CI/CD：
+Stage 6 已完成 GitHub Actions 与 Jenkins Mock 两条真实 CI 主链验证，当前只剩真实 SUT Jenkins 参数化验收：
 
 ```text
-1. GitHub 首次 push：已完成
-2. API Autotest Framework CI 首次云端 Run：已绿色通过
-3. CI evidence Artifact：已真实生成并可见
-4. 清理首次提交误跟踪的 `.idea/`，并在 `.gitignore` 中永久忽略 IDE 本地配置
-5. 在可访问目标测试环境的 Jenkins 节点创建 Pipeline from SCM
-6. 先以 ENV_NAME=test / LEVEL=smoke 验证 Jenkins 框架 Mock 流程
-7. 再按需要选择真实环境 YAML 与 smoke/core/regression，记录 JUnit/Artifact 证据
-8. Jenkins 获得真实平台证据后关闭 Stage 6，进入 Stage 7 AI
+1. GitHub Actions 公共框架 CI：已完成，连续绿色并生成 Artifact
+2. Jenkins Pipeline from SCM：已完成
+3. Jenkins ENV_NAME=test / LEVEL=smoke：已真实 SUCCESS
+4. Jenkins Workspace .venv 隔离与 UTF-8 编码修复：已真实验证生效
+5. JUnit 记录与 reports/logs Artifact 归档：已真实验证
+6. 下一步准备不进入 GitHub 的私有短链接环境 YAML
+7. 使用 Build with Parameters 运行 ENV_NAME=<私有环境名> / LEVEL=smoke
+8. 确认 Jenkins 可访问本机真实 Gateway/Project，并保留 JUnit/Artifact 证据
+9. 真实 SUT Jenkins smoke 通过后关闭 Stage 6，进入 Stage 7 AI
 ```
 
 Stage 6 坚持：
@@ -2283,18 +2298,100 @@ Stage 3 已完成后，可以使用以下阶段性描述：
 - Stage 4.5：6 条 Core 已由用户 Windows 真实验证为 6/6，Sentinel 前置限流有界重试已通过真实运行
 - 登录凭据：当前 SUT 已迁移到 env.shortlink-local.yaml，不再要求终端 export；这是通用 `${config(section,key)}` 的真实使用示例
 - Stage 5：通用 MySQL/Redis Client、YAML 数据源断言、YAML marker/poll、环境 suite 选择已实现并由用户确认真实 Regression 6/6 通过
-- Stage 6：GitHub Actions 公共框架 CI、参数化 Jenkinsfile、JUnit/Allure/run.json/日志归档已实现并通过离线契约；GitHub Actions 已获得绿色 Run + Artifact 真实证据，Jenkins 真实 Pipeline 待验收
+- Stage 6：GitHub Actions 已真实绿色；Jenkins Build #10 已真实完成 SCM → .venv → Mock smoke 2/2 → JUnit → Artifacts；V3.2.6 已实现通用外部环境 YAML 覆盖，真实 SUT Jenkins smoke 待最终执行
 
 当前真实证据边界：
 - Stage 4：已真实通过
 - Stage 4.5：用户 Windows 真实 Core 6/6，已完成
 - Stage 5：用户确认完整 Regression 6/6 已真实通过，已完成
-- Stage 6：代码/离线契约完成；GitHub Actions 真实平台已验收通过，Jenkins 真实 Pipeline 证据待验收
+- Stage 6：GitHub Actions 与 Jenkins Mock Pipeline 均已真实验收；外部私有环境 YAML 机制已通过代码/契约验证；真实 SUT Jenkins smoke 待验收
 
 下一路线：
-Stage 6 平台验收 -> Stage 7 AI -> Stage 8 项目/简历/面试收尾
+Stage 6 真实 SUT Jenkins smoke -> Stage 7 AI -> Stage 8 项目/简历/面试收尾
 ```
 
 ---
 
 **文档状态：V3.2.3。项目定位保持“AI 辅助接口自动化测试框架”，短链接仅为当前真实 SUT。Stage 4/4.5/5 已完成真实验收；Stage 6 的 GitHub Actions 已连续获得绿色 Run + Artifact 真实平台证据。Jenkins 已真实完成 SCM/Jenkinsfile 获取与代码 Checkout，当前针对 Windows Service 的 UTF-8 编码和 Python 环境隔离问题完成 Jenkinsfile 定向修复，待重新 Build 验证 Mock Pipeline 后继续真实 SUT 验收。**
+
+---
+
+## V3.2.5 状态更新（2026-08-18）
+
+### Stage 6 Jenkins 本地 CI 验收：已完成 Mock 主链
+本次已通过 Jenkins 页面截图与真实构建日志完成以下验收：
+
+- **参数化入口已生效**：`ENV_NAME` 为自由字符串，`LEVEL` 可选择 `smoke / core / regression`。
+- **JUnit 可视化结果已生效**：Build #10 的 `testcases.demo` 显示 2 passed、0 failed、0 skipped。
+- **Artifacts 归档已生效**：Build #10 可查看 `logs/` 与 `reports/runs/jenkins-10/`。
+- **真实 Jenkins Pipeline 主链已成功**：
+  GitHub SCM → Checkout → Workspace `.venv` → 安装依赖 → `run.py --env test --level smoke` → Mock Smoke → JUnit → Artifacts → `SUCCESS`。
+- **Python/Windows 编码问题已解决**：Jenkins 使用 Workspace 独立 `.venv`，Pipeline 内启用 Python UTF-8 Mode，避免 CP936/GBK 解码冲突。
+- **当前 Jenkins Mock 验收结果**：2 passed，4 deselected。
+
+### Stage 6 当前剩余任务
+下一步仅剩 **真实 SUT 的 Jenkins 参数化验收**。为避免将本地账号、数据库密码等信息提交到公共 GitHub，采用以下原则：
+
+1. 公共仓库继续保留安全占位配置，不提交真实凭据。
+2. Jenkins 本机维护一个 **Git 仓库外的私有环境 YAML**，仍保持“凭据直接在本地 YAML 编辑”的使用习惯。
+3. Pipeline 仅提供通用的“可选本地环境配置文件注入”能力，不写死 shortlink 业务概念。
+4. Jenkins 不复制私有 YAML；仅把仓库外文件路径临时注入 `API_TEST_ENV_FILE`，由 ConfigManager 直接读取并递归覆盖公开命名环境。
+5. 先执行真实 SUT `smoke`，通过后再评估是否需要 `core/regression` 的 Jenkins 验收。
+
+### Stage 6 状态
+- GitHub Actions 公共 CI：**已完成并真实通过**
+- Jenkins Mock CI：**已完成并真实通过**
+- Jenkins 参数化/JUnit/Artifacts：**已完成并真实通过**
+- Jenkins 真实 SUT Smoke：**待执行**
+
+---
+
+## V3.2.6 状态更新（2026-08-18）
+
+### 1. 外部私有环境 YAML 能力已实现
+
+本版本把“真实凭据如何进入 Jenkins”收敛成框架级通用能力，而不是短链接专用脚本。稳定优先级为：
+
+```text
+CLI > env vars > external env YAML > env.<name>.yaml > config.yaml
+```
+
+### 2. 框架边界
+
+- `core/config_manager.py` 新增可选外部 YAML 覆盖层，不理解任何具体 SUT 字段。
+- `run.py` 新增 `--env-file`，同时支持 `API_TEST_ENV_FILE`；参数只传文件路径，不传真实密码值。
+- Pytest collection hooks 与 fixtures 在同一运行期间读取同一个外部文件，避免 Runner/collection 配置分裂。
+- 显式文件不存在时 fail-fast，不静默使用公开 YAML 的 `CHANGE_ME`。
+- `Jenkinsfile` 新增通用 `ENV_FILE` 参数，只把路径临时注入测试进程，不复制私有 YAML 到 Workspace，也不归档其内容。
+- CI 契约继续禁止当前 SUT 业务 token 出现在公共 Pipeline。
+
+### 3. 真实项目作为可公开参考
+
+当前真实项目继续位于 Project Adapter/Test Cases 层：
+
+```text
+config/env.shortlink-local.yaml
+testcases/shortlink/
+docs/examples/env.shortlink-local.override.example.yaml
+```
+
+这些内容可以上传 GitHub 作为“真实项目如何接入框架”的参考；真实登录密码、MySQL 密码等只填写在仓库外副本中。以后接入其他项目时沿用同一模式，不修改框架核心。
+
+### 4. 当前 Stage 6 验收状态
+
+- GitHub Actions 公共 CI：**已真实通过**
+- Jenkins Mock CI：**Build #10 已真实 SUCCESS（2 passed / 4 deselected）**
+- Jenkins 参数化/JUnit/Artifacts：**已真实通过**
+- 外部私有环境 YAML：**代码与自动化契约已实现，待用户本机 Jenkins 使用真实文件验证**
+- Jenkins 真实 SUT Smoke：**待执行**
+
+### 5. 下一步
+
+```text
+ENV_NAME = <真实项目环境名>
+LEVEL    = smoke
+ENV_FILE = <仓库外私有覆盖 YAML 路径>
+```
+
+完成真实 SUT Jenkins smoke。通过后 Stage 6 平台验收即可收口，进入 Stage 7 AI。
+

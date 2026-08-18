@@ -1,6 +1,6 @@
 # AI 辅助接口自动化测试框架
 
-> 当前版本：V3.2 / Stage 6 CI/CD 与报告归档候选版
+> 当前版本：V3.2.6 / Stage 6 CI/CD + 外部私有环境覆盖
 
 这是一个面向测试开发场景的**可复用接口自动化测试框架**。项目以 MIT 许可的
 `zed123214/api-autotest-framework` 为学习与改造基线，围绕 Pytest + Requests + YAML
@@ -437,9 +437,11 @@ Core        6 / 18
 Regression  6 / 18
 ```
 
-## 11. CI/CD 与报告归档
+## 11. CI/CD、真实项目接入与私有配置边界
 
-Stage 6 将 CI 分成两个职责边界：
+项目主体始终是 **AI 辅助接口自动化测试框架**。短链接 SaaS 位于 Project Adapter/Test Cases 层，是一个可公开参考的真实 SUT 接入示例，不进入框架核心。
+
+Stage 6 的 CI 职责：
 
 ```text
 GitHub Actions
@@ -448,38 +450,47 @@ GitHub Actions
 
 Jenkins
 → 部署在能访问目标测试环境的 Agent
-→ 通过 ENV_NAME + LEVEL 调用统一 run.py
+→ ENV_NAME 选择公开命名环境
+→ LEVEL 选择 smoke/core/regression
+→ ENV_FILE 可选指向仓库外私有覆盖 YAML
+→ 始终调用统一 run.py
 ```
 
-公共 GitHub workflow：
+公共真实项目配置可以继续上传 GitHub：
 
 ```text
-.github/workflows/api-test.yml
+config/env.<project>.yaml        # 敏感值使用 CHANGE_ME
+testcases/<project>/            # 真实项目适配与 YAML 用例
 ```
 
-会执行 framework tests、`env=test` Mock smoke、compileall，并在成功/失败后上传 JUnit、Allure Results 和 run.json。
+真实账号、数据库密码等只保存在仓库外覆盖 YAML。该文件可以只写需要覆盖的字段；ConfigManager 以：
 
-Jenkinsfile 使用参数：
+```text
+CLI > env vars > external env YAML > env.<name>.yaml > config.yaml
+```
+
+递归合并。统一 Runner 同时支持：
+
+```bash
+python run.py --env <project> --env-file "<external-yaml>" --level smoke
+```
+
+Jenkins 参数为：
 
 ```text
 ENV_NAME = config/env.<name>.yaml 对应环境名
 LEVEL    = smoke / core / regression
+ENV_FILE = 可选的 Jenkins Agent 仓库外覆盖 YAML 路径
 ```
 
-最终只调用：
-
-```bash
-python run.py --env "<ENV_NAME>" --level "<LEVEL>"
-```
-
-因此以后接入其他 SUT 时，不需要修改公共 CI 调度逻辑。详细说明见 `docs/10_CI-CD接入说明.md`。
+`ENV_FILE` 留空时保持现有 Mock/公共配置行为；有值时 Jenkins 仅把路径临时注入 `API_TEST_ENV_FILE`，不复制私有 YAML 到 Workspace，也不归档其内容。因此以后接入其他 SUT，不需要修改公共 CI 调度逻辑。详细说明见 `docs/10_CI-CD接入说明.md`。
 
 ## 12. 证据边界
 
 - Stage 4 Smoke：用户 Windows 真实环境 `6/6`；
 - Stage 4.5 Core：用户 Windows 真实环境 `6/6`；
 - Stage 5 Regression：用户已确认 Redis 协议修复后的完整回归测试通过，因此通用 MySQL/Redis YAML 数据断言已完成真实 SUT 验收；
-- Stage 6：workflow/Jenkinsfile 当前可通过离线契约与框架回归验证；只有真正 push 到 GitHub 或在 Jenkins 创建并执行 Pipeline 后，才记录真实 CI 平台通过证据。
+- Stage 6：GitHub Actions 已真实绿色；Jenkins `ENV_NAME=test, LEVEL=smoke` 已真实完成 2/2 Mock smoke、JUnit 与 Artifact 归档；外部私有环境 YAML 机制已实现并通过离线契约验证，真实 SUT Jenkins smoke 待本机最终执行。
 
 ## 13. 后续路线
 
