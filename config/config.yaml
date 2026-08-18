@@ -1,0 +1,29 @@
+# 框架默认配置：所有命名环境都以这里为基础，再由 env.<name>.yaml、环境变量和 CLI 覆盖。
+api:
+  # 默认 API 地址；Mock 环境可由 fixture 使用随机本地端口替换。
+  host: http://127.0.0.1:8080
+  # 单次 HTTP 请求默认超时时间，单位：秒。
+  timeout: 30
+  # 默认开启 TLS 证书校验；只有受控测试环境可以显式关闭。
+  verify_ssl: true
+  # 默认不启用 Mock，避免误把模拟服务当成真实业务服务。
+  use_mock: false
+
+# 空列表表示公共 Pytest glue 不主动过滤 testcases/<suite>/；命名环境通常应显式覆盖。
+test_selection:
+  # 例如 [order]、[payment] 或 [demo]；suite 名由项目目录决定，不写死在 Python。
+  include_suites: []
+
+# 通用命名数据源默认留空；只有 YAML 使用 db_*/redis_* 断言时才需要在环境文件配置真实连接。
+data_sources:
+  # MySQL 可配置 default/readonly/reporting 等多个 source。
+  mysql: {}
+  # Redis 同样按 source 命名，普通纯 HTTP 项目可以完全不配置。
+  redis: {}
+
+report:
+  # run.py 会在该目录下按 run_id 创建独立 JUnit/Allure 输出目录。
+  root_dir: reports/runs
+log:
+  # 默认 INFO；命名环境或 LOG_LEVEL 可以按需覆盖。
+  level: INFO

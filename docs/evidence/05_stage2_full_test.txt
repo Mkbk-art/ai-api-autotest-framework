@@ -1,0 +1,38 @@
+Stage 2 verification - 2026-08-11
+
+Environment used for delivery verification:
+Python 3.13.5
+Pytest 9.0.2
+
+Framework tests:
+50 passed
+
+Business Mock tests:
+6 passed
+
+Full suite:
+56 passed
+
+Layered runs:
+smoke: 2 passed, 4 deselected
+core: 2 passed, 4 deselected
+regression: 2 passed, 4 deselected
+
+Coverage command:
+python -m pytest tests -q --cov=base --cov=common --cov=mock_server --cov-report=term-missing --cov-report=xml:reports/coverage.xml
+
+Coverage result:
+TOTAL 719 statements, 160 missed, 78% coverage
+50 passed
+
+Verified Stage 2 behaviors:
+- in-memory scoped VariableContext
+- no runtime extract.yaml dependency
+- old and new variable expressions
+- expanded assertion engine
+- explicit unsupported assertion failure
+- non-JSON mock response
+- real request timeout path
+- connection failure path
+- sanitized Allure request-header attachment
+- runner metadata works with/without allure-pytest

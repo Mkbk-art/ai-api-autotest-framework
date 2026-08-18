@@ -1,0 +1,126 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.5, pytest-9.0.2, pluggy-1.6.0
+rootdir: /mnt/data/_redirect_refactor
+configfile: pytest.ini
+plugins: asyncio-1.3.0, metadata-3.1.1, anyio-4.13.0, ddtrace-4.4.0, json-report-1.5.0, Faker-40.1.2, cov-7.0.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 83 items
+
+tests/integration/test_collection_count.py::test_test_environment_collects_only_six_demo_cases PASSED
+tests/integration/test_collection_count.py::test_shortlink_local_environment_collects_only_six_real_cases PASSED
+tests/integration/test_error_paths.py::test_mock_server_exposes_non_json_response_and_client_handles_it 
+-------------------------------- live log call ---------------------------------
+INFO - 15:16:43 - request_client.py:85 - 接口: plain | 用例: plain response
+INFO - 15:16:43 - request_client.py:86 - 请求: GET http://127.0.0.1:33365/api/v1/plain
+INFO - 15:16:43 - request_client.py:87 - Header: {}
+INFO - 15:16:43 - request_client.py:62 - [GET] http://127.0.0.1:33365/api/v1/plain -> 200
+PASSED
+tests/integration/test_error_paths.py::test_mock_server_can_trigger_real_request_timeout 
+-------------------------------- live log call ---------------------------------
+ERROR - 15:16:43 - request_client.py:65 - 请求超时: GET http://127.0.0.1:36203/api/v1/slow?delay=0.15
+PASSED
+tests/integration/test_marker_independence.py::test_each_marker_level_runs_independently[smoke] PASSED
+tests/integration/test_marker_independence.py::test_each_marker_level_runs_independently[core] PASSED
+tests/integration/test_marker_independence.py::test_each_marker_level_runs_independently[regression] PASSED
+tests/integration/test_mock_server.py::test_mock_api_supports_login_publish_and_call_flow PASSED
+tests/integration/test_mock_server.py::test_mock_api_rejects_missing_or_invalid_tokens PASSED
+tests/integration/test_runner_evidence.py::test_zero_collected_tests_returns_nonzero_and_writes_metadata PASSED
+tests/unit/test_assertion_engine.py::test_legacy_contains_eq_and_ne_rules_remain_supported PASSED
+tests/unit/test_assertion_engine.py::test_selector_based_assertions_cover_common_response_checks PASSED
+tests/unit/test_assertion_engine.py::test_failed_assertions_report_rule_and_actual_value PASSED
+tests/unit/test_assertion_engine.py::test_unsupported_assertion_type_fails_explicitly PASSED
+tests/unit/test_assertion_engine.py::test_exists_and_numeric_comparison_fail_when_selector_is_missing PASSED
+tests/unit/test_compat.py::test_allure_compat_is_importable_without_allure_pytest PASSED
+tests/unit/test_compat.py::test_jsonpath_util_reads_nested_fields_and_lists PASSED
+tests/unit/test_config_and_runner.py::test_config_precedence_cli_over_env_over_named_file_over_defaults PASSED
+tests/unit/test_config_and_runner.py::test_invalid_boolean_environment_value_is_rejected PASSED
+tests/unit/test_config_and_runner.py::test_build_pytest_args_separates_junit_and_allure_outputs PASSED
+tests/unit/test_config_and_runner.py::test_build_pytest_args_omits_allure_options_when_plugin_missing PASSED
+tests/unit/test_config_and_runner.py::test_resolve_level_prefers_explicit_level_and_supports_legacy_flags PASSED
+tests/unit/test_config_and_runner.py::test_environment_can_disable_mock_mode PASSED
+tests/unit/test_config_and_runner.py::test_cli_api_overrides_are_built_from_parser_values PASSED
+tests/unit/test_config_and_runner.py::test_shortlink_local_environment_targets_real_gateway_without_mock PASSED
+tests/unit/test_context_integration.py::test_extractor_writes_jsonpath_value_to_injected_context PASSED
+tests/unit/test_context_integration.py::test_request_base_dynamic_replacement_reads_its_own_context PASSED
+tests/unit/test_context_integration.py::test_runtime_context_does_not_create_extract_yaml PASSED
+tests/unit/test_debugtalk.py::test_debugtalk_env_reads_required_environment_variable PASSED
+tests/unit/test_debugtalk.py::test_debugtalk_env_rejects_missing_environment_variable PASSED
+tests/unit/test_request_and_headers.py::test_request_client_forwards_json_exactly_once 
+-------------------------------- live log call ---------------------------------
+INFO - 15:16:57 - request_client.py:62 - [POST] http://example.test/items -> 200
+PASSED
+tests/unit/test_request_and_headers.py::test_case_headers_override_base_headers PASSED
+tests/unit/test_request_and_headers.py::test_null_case_header_removes_inherited_header PASSED
+tests/unit/test_request_and_headers.py::test_sanitizer_masks_sensitive_headers_recursively PASSED
+tests/unit/test_request_and_headers.py::test_request_base_applies_runtime_timeout_and_tls_verification PASSED
+tests/unit/test_request_and_headers.py::test_request_client_forwards_non_json_payload_types[data-value0] 
+-------------------------------- live log call ---------------------------------
+INFO - 15:16:57 - request_client.py:62 - [POST] http://example.test/items -> 200
+PASSED
+tests/unit/test_request_and_headers.py::test_request_client_forwards_non_json_payload_types[params-value1] 
+-------------------------------- live log call ---------------------------------
+INFO - 15:16:57 - request_client.py:62 - [POST] http://example.test/items -> 200
+PASSED
+tests/unit/test_request_and_headers.py::test_request_client_forwards_non_json_payload_types[files-value2] 
+-------------------------------- live log call ---------------------------------
+INFO - 15:16:57 - request_client.py:62 - [POST] http://example.test/items -> 200
+PASSED
+tests/unit/test_request_and_headers.py::test_request_client_reraises_timeout 
+-------------------------------- live log call ---------------------------------
+ERROR - 15:16:57 - request_client.py:65 - 请求超时: GET http://example.test/slow
+PASSED
+tests/unit/test_request_and_headers.py::test_request_client_reraises_connection_error 
+-------------------------------- live log call ---------------------------------
+ERROR - 15:16:57 - request_client.py:68 - 连接失败: GET http://example.test/offline
+PASSED
+tests/unit/test_request_and_headers.py::test_allure_request_header_attachment_is_sanitized 
+-------------------------------- live log call ---------------------------------
+INFO - 15:16:57 - request_client.py:85 - 接口: demo | 用例: sanitized
+INFO - 15:16:57 - request_client.py:86 - 请求: GET http://example.test/items
+INFO - 15:16:57 - request_client.py:87 - Header: {'Authorization': '***', 'X-Trace': 'safe'}
+INFO - 15:16:57 - request_client.py:62 - [GET] http://example.test/items -> 200
+PASSED
+tests/unit/test_request_and_headers.py::test_api_runner_uses_absolute_yaml_url_and_forwards_request_options PASSED
+tests/unit/test_request_and_headers.py::test_api_runner_still_prefixes_host_for_relative_yaml_urls PASSED
+tests/unit/test_shortlink_support.py::test_authenticate_shortlink_stores_username_and_token_in_context PASSED
+tests/unit/test_shortlink_support.py::test_capture_created_link_context_normalizes_scheme_and_short_uri PASSED
+tests/unit/test_shortlink_support.py::test_query_first_group_uses_gateway_headers_and_stores_gid PASSED
+tests/unit/test_shortlink_support.py::test_create_shortlink_posts_source_contract_and_captures_context PASSED
+tests/unit/test_shortlink_support.py::test_shortlink_credentials_repr_hides_password PASSED
+tests/unit/test_shortlink_support.py::test_authenticate_shortlink_signature_does_not_expose_password_argument PASSED
+tests/unit/test_shortlink_support.py::test_real_create_yaml_uses_github_homepage PASSED
+tests/unit/test_shortlink_support.py::test_redirect_yaml_declares_absolute_url_and_disables_following PASSED
+tests/unit/test_shortlink_support.py::test_wait_for_shortlink_stats_returns_immediately_when_visit_is_visible PASSED
+tests/unit/test_shortlink_support.py::test_wait_for_shortlink_stats_retries_until_async_stats_are_visible PASSED
+tests/unit/test_shortlink_support.py::test_wait_for_shortlink_stats_fails_after_bounded_timeout_with_last_payload PASSED
+tests/unit/test_shortlink_support.py::test_cleanup_shortlink_uses_recycle_bin_save_then_remove PASSED
+tests/unit/test_stage3_structure.py::test_stage3_uses_new_package_layout_without_legacy_directories PASSED
+tests/unit/test_stage3_structure.py::test_core_api_runner_is_importable_from_new_location PASSED
+tests/unit/test_stage3_structure.py::test_production_python_modules_have_module_docstrings[core] PASSED
+tests/unit/test_stage3_structure.py::test_production_python_modules_have_module_docstrings[utils] PASSED
+tests/unit/test_stage3_structure.py::test_production_python_modules_have_module_docstrings[mock_server] PASSED
+tests/unit/test_stage3_structure.py::test_production_python_modules_have_module_docstrings[testcases] PASSED
+tests/unit/test_stage3_structure.py::test_core_and_utils_public_apis_have_docstrings PASSED
+tests/unit/test_stage4_comment_quality.py::test_stage4_python_business_files_keep_module_docs_and_dense_comments PASSED
+tests/unit/test_stage4_comment_quality.py::test_stage4_yaml_cases_keep_dense_field_comments PASSED
+tests/unit/test_variable_context.py::test_scope_precedence_and_explicit_scope_lookup PASSED
+tests/unit/test_variable_context.py::test_exact_placeholder_preserves_value_type_and_embedded_placeholder_becomes_text PASSED
+tests/unit/test_variable_context.py::test_replace_variables_recurses_through_dict_list_and_tuple PASSED
+tests/unit/test_variable_context.py::test_missing_variable_raises_clear_error PASSED
+tests/unit/test_variable_context.py::test_clear_can_target_one_scope_or_all_scopes PASSED
+tests/unit/test_variable_context.py::test_instances_are_isolated_and_snapshot_is_a_copy PASSED
+tests/unit/test_yaml_loader.py::test_test_modules_reference_existing_yaml_files[test_login.py-login.yaml] PASSED
+tests/unit/test_yaml_loader.py::test_test_modules_reference_existing_yaml_files[test_publish_api.py-publish_api.yaml] PASSED
+tests/unit/test_yaml_loader.py::test_test_modules_reference_existing_yaml_files[test_call_api.py-call_api.yaml] PASSED
+tests/unit/test_yaml_loader.py::test_missing_yaml_file_raises_file_not_found PASSED
+tests/unit/test_yaml_loader.py::test_invalid_yaml_root_raises_value_error PASSED
+tests/unit/test_yaml_loader.py::test_missing_testcase_list_raises_value_error PASSED
+tests/unit/test_yaml_loader.py::test_yaml_loader_returns_every_case PASSED
+tests/unit/test_yaml_loader.py::test_real_shortlink_modules_reference_existing_yaml_files[test_auth.py-auth.yaml] PASSED
+tests/unit/test_yaml_loader.py::test_real_shortlink_modules_reference_existing_yaml_files[test_group.py-group.yaml] PASSED
+tests/unit/test_yaml_loader.py::test_real_shortlink_modules_reference_existing_yaml_files[test_create.py-create.yaml] PASSED
+tests/unit/test_yaml_loader.py::test_real_shortlink_modules_reference_existing_yaml_files[test_page.py-page.yaml] PASSED
+tests/unit/test_yaml_loader.py::test_real_shortlink_modules_reference_existing_yaml_files[test_redirect.py-redirect.yaml] PASSED
+tests/unit/test_yaml_loader.py::test_real_shortlink_modules_reference_existing_yaml_files[test_statistics.py-statistics.yaml] PASSED
+
+============================= 83 passed in 19.61s ==============================

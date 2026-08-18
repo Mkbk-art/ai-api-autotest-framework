@@ -1,0 +1,82 @@
+$ pytest tests --cov=base --cov=common --cov=mock_server --cov-report=term-missing --cov-report=xml:reports/coverage.xml
+============================= test session starts ==============================
+platform linux -- Python 3.13.5, pytest-9.0.2, pluggy-1.6.0
+rootdir: /mnt/data/ai-api-autotest-framework-stage1
+configfile: pytest.ini
+plugins: cov-7.0.0, ddtrace-4.4.0, metadata-3.1.1, anyio-4.13.0, json-report-1.5.0, Faker-40.1.2, asyncio-1.3.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 31 items
+
+tests/integration/test_collection_count.py::test_collected_test_count_matches_yaml_case_count PASSED
+tests/integration/test_marker_independence.py::test_each_marker_level_runs_independently[smoke] PASSED
+tests/integration/test_marker_independence.py::test_each_marker_level_runs_independently[core] PASSED
+tests/integration/test_marker_independence.py::test_each_marker_level_runs_independently[regression] PASSED
+tests/integration/test_mock_server.py::test_mock_api_supports_login_publish_and_call_flow PASSED
+tests/integration/test_mock_server.py::test_mock_api_rejects_missing_or_invalid_tokens PASSED
+tests/integration/test_runner_evidence.py::test_zero_collected_tests_returns_nonzero_and_writes_metadata PASSED
+tests/unit/test_compat.py::test_allure_compat_is_importable_without_allure_pytest PASSED
+tests/unit/test_compat.py::test_jsonpath_util_reads_nested_fields_and_lists PASSED
+tests/unit/test_config_and_runner.py::test_config_precedence_cli_over_env_over_named_file_over_defaults PASSED
+tests/unit/test_config_and_runner.py::test_invalid_boolean_environment_value_is_rejected PASSED
+tests/unit/test_config_and_runner.py::test_build_pytest_args_separates_junit_and_allure_outputs PASSED
+tests/unit/test_config_and_runner.py::test_build_pytest_args_omits_allure_options_when_plugin_missing PASSED
+tests/unit/test_config_and_runner.py::test_resolve_level_prefers_explicit_level_and_supports_legacy_flags PASSED
+tests/unit/test_config_and_runner.py::test_environment_can_disable_mock_mode PASSED
+tests/unit/test_config_and_runner.py::test_cli_api_overrides_are_built_from_parser_values PASSED
+tests/unit/test_request_and_headers.py::test_request_client_forwards_json_exactly_once INFO - 2026-08-04 13:21:33,534 - request_client.py:50 -[request_client:request] - [POST] http://example.test/items -> 200
+
+-------------------------------- live log call ---------------------------------
+INFO - 13:21:33 - request_client.py:50 - [POST] http://example.test/items -> 200
+PASSED
+tests/unit/test_request_and_headers.py::test_case_headers_override_base_headers PASSED
+tests/unit/test_request_and_headers.py::test_null_case_header_removes_inherited_header PASSED
+tests/unit/test_request_and_headers.py::test_sanitizer_masks_sensitive_headers_recursively PASSED
+tests/unit/test_request_and_headers.py::test_request_base_applies_runtime_timeout_and_tls_verification PASSED
+tests/unit/test_request_and_headers.py::test_request_client_forwards_non_json_payload_types[data-value0] INFO - 2026-08-04 13:21:33,547 - request_client.py:50 -[request_client:request] - [POST] http://example.test/items -> 200
+
+-------------------------------- live log call ---------------------------------
+INFO - 13:21:33 - request_client.py:50 - [POST] http://example.test/items -> 200
+PASSED
+tests/unit/test_request_and_headers.py::test_request_client_forwards_non_json_payload_types[params-value1] INFO - 2026-08-04 13:21:33,551 - request_client.py:50 -[request_client:request] - [POST] http://example.test/items -> 200
+
+-------------------------------- live log call ---------------------------------
+INFO - 13:21:33 - request_client.py:50 - [POST] http://example.test/items -> 200
+PASSED
+tests/unit/test_request_and_headers.py::test_request_client_forwards_non_json_payload_types[files-value2] INFO - 2026-08-04 13:21:33,555 - request_client.py:50 -[request_client:request] - [POST] http://example.test/items -> 200
+
+-------------------------------- live log call ---------------------------------
+INFO - 13:21:33 - request_client.py:50 - [POST] http://example.test/items -> 200
+PASSED
+tests/unit/test_yaml_loader.py::test_test_modules_reference_existing_yaml_files[test_login.py-login.yaml] PASSED
+tests/unit/test_yaml_loader.py::test_test_modules_reference_existing_yaml_files[test_publish_api.py-publish_api.yaml] PASSED
+tests/unit/test_yaml_loader.py::test_test_modules_reference_existing_yaml_files[test_call_api.py-call_api.yaml] PASSED
+tests/unit/test_yaml_loader.py::test_missing_yaml_file_raises_file_not_found PASSED
+tests/unit/test_yaml_loader.py::test_invalid_yaml_root_raises_value_error PASSED
+tests/unit/test_yaml_loader.py::test_missing_testcase_list_raises_value_error PASSED
+tests/unit/test_yaml_loader.py::test_yaml_loader_returns_every_case PASSED
+
+================================ tests coverage ================================
+_______________ coverage: platform linux, python 3.13.5-final-0 ________________
+
+Name                       Stmts   Miss  Cover   Missing
+--------------------------------------------------------
+base/__init__.py               0      0   100%
+base/apiutil.py               66     44    33%   34-58, 61-81
+base/debugtalk.py             33     16    52%   11, 14, 17, 20, 23, 26, 29, 32, 35, 38-44
+common/__init__.py             0      0   100%
+common/allure_compat.py       22      6    73%   23, 28-29, 32-33, 40
+common/assertion.py           58     51    12%   5-14, 19-31, 34-44, 47-52, 55-68
+common/config_manager.py      60      6    90%   30, 35, 42, 64-65, 71
+common/extractor.py           20     15    25%   8-22
+common/jsonpath_util.py       34     11    68%   15, 17, 29-30, 32-35, 40, 45-46
+common/logger.py              36      2    94%   23, 28
+common/project_paths.py       12      1    92%   15
+common/request_client.py      42     24    43%   52-57, 70-104
+common/sanitizer.py           15      2    87%   35, 37
+common/yaml_loader.py         63     29    54%   21-24, 32, 36, 41, 54-61, 64-75, 78-79
+mock_server/__init__.py        0      0   100%
+mock_server/server.py        109     17    84%   30, 36, 50-51, 66-69, 84, 92-93, 110-112, 114-115, 129, 138
+--------------------------------------------------------
+TOTAL                        570    224    61%
+Coverage XML written to file reports/coverage.xml
+============================= 31 passed in 14.63s ==============================

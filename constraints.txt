@@ -1,0 +1,11 @@
+# 当前已验证版本范围，用于减少不同机器安装时的依赖漂移。
+pytest>=9.0,<10
+requests>=2.32,<3
+PyYAML>=6.0,<7
+allure-pytest>=2.16,<3
+pytest-cov>=7.0,<8
+pytest-rerunfailures>=16.0,<17
+pytest-xdist>=3.8,<4
+
+# Redis 5~8 均由框架显式 protocol 配置控制，限制未来未验证主版本漂移。
+redis>=5.0,<9

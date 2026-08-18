@@ -1,0 +1,2 @@
+$ python -m compileall -q base common mock_server testcase tests run.py
+compileall exit=0

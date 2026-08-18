@@ -1,0 +1,79 @@
+# AI 辅助接口自动化测试框架的公共 CI。
+#
+# 这一份 workflow 只验证“框架本身 + 受控 Mock/Demo”，不会尝试访问任何开发者本机 SUT。
+# 真实项目是否能访问由它自己的环境和执行节点决定，避免公共 CI 被某个具体业务系统绑死。
+name: API Autotest Framework CI
+
+# push、Pull Request 和手工触发分别覆盖日常提交、合并前校验和演示/排障。
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+# CI 只需要读取仓库；显式最小权限避免 workflow 获得不必要的写权限。
+permissions:
+  contents: read
+
+# 同一分支出现更新提交时，取消旧的未完成运行，减少重复占用托管 Runner。
+concurrency:
+  group: api-autotest-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  framework-ci:
+    # 公共框架测试选择 GitHub 托管 Linux Runner，不依赖开发者自己的 Windows/Java 服务。
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1) 拉取当前提交。v6 是当前官方 checkout 主版本。
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      # 2) 明确固定 Python 3.11，避免托管 Runner 默认 Python 版本变化导致不可重复。
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          # setup-python 直接缓存 pip 下载结果；key 会参考依赖文件内容。
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+            constraints.txt
+
+      # 3) CI 与本地共用同一依赖声明和 constraints，防止“本地能跑、CI 装了另一版本”。
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt -c constraints.txt
+
+      # 4) tests/ 专门验证框架代码、YAML loader、断言、数据源 Client、架构守门等公共能力。
+      - name: Run framework tests
+        run: |
+          mkdir -p reports/ci
+          python -m pytest tests -q --junitxml=reports/ci/framework-junit.xml
+
+      # 5) 再通过正式 run.py 跑受控 Mock smoke，验证“用户真实使用入口”本身也能在干净机器工作。
+      #    env=test 会由环境 YAML 选择 Demo suite 并自动启动 Mock Server，不依赖任何真实 SUT。
+      - name: Run Mock smoke through framework runner
+        run: |
+          python run.py --env test --level smoke --run-id github-actions-demo
+
+      # 6) compileall 能提前发现测试未覆盖到的语法/编码错误；仍然不接触具体业务环境。
+      - name: Compile Python sources
+        run: |
+          python -m compileall -q core db utils mock_server testcases tests run.py conftest.py
+
+      # 7) Artifact 无论前面成功还是失败都尝试上传，红灯时仍能拿到 JUnit/Allure/run.json 排查。
+      - name: Upload CI test evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: api-autotest-ci-evidence-${{ github.run_number }}
+          path: |
+            reports/ci/
+            reports/runs/github-actions-demo/
+            logs/
+          # 某个更早阶段（例如安装依赖）失败时可能尚未生成报告，这里只警告而不覆盖原失败原因。
+          if-no-files-found: warn
+          retention-days: 14

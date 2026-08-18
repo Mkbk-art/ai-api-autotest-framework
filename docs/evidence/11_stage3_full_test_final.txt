@@ -1,0 +1,198 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.5, pytest-9.0.2, pluggy-1.6.0
+rootdir: /mnt/data/ai-api-autotest-framework-stage3-work
+configfile: pytest.ini
+testpaths: testcases, tests
+plugins: cov-7.0.0, json-report-1.5.0, metadata-3.1.1, asyncio-1.3.0, anyio-4.13.0, ddtrace-4.4.0, Faker-40.1.2
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 63 items
+
+testcases/demo/test_call_api.py::test_call_api[base_info0-test_case0] INFO - 2026-08-11 14:47:59,953 - request_client.py:62 -[request_client:request] - [POST] http://127.0.0.1:40355/api/v1/auth/login -> 200
+
+-------------------------------- live log setup --------------------------------
+INFO - 14:47:59 - request_client.py:62 - [POST] http://127.0.0.1:40355/api/v1/auth/login -> 200
+INFO - 2026-08-11 14:47:59,955 - request_client.py:62 -[request_client:request] - [POST] http://127.0.0.1:40355/api/v1/interface/publish -> 200
+INFO - 14:47:59 - request_client.py:62 - [POST] http://127.0.0.1:40355/api/v1/interface/publish -> 200
+INFO - 2026-08-11 14:47:59,956 - request_client.py:85 -[request_client:run] - 接口: 调用已发布接口 | 用例: 正常调用接口
+-------------------------------- live log call ---------------------------------
+INFO - 14:47:59 - request_client.py:85 - 接口: 调用已发布接口 | 用例: 正常调用接口
+INFO - 2026-08-11 14:47:59,956 - request_client.py:86 -[request_client:run] - 请求: POST http://127.0.0.1:40355/api/v1/interface/call
+INFO - 14:47:59 - request_client.py:86 - 请求: POST http://127.0.0.1:40355/api/v1/interface/call
+INFO - 2026-08-11 14:47:59,956 - request_client.py:87 -[request_client:run] - Header: {'Content-Type': 'application/json;charset=UTF-8', 'Authorization': '***'}
+INFO - 14:47:59 - request_client.py:87 - Header: {'Content-Type': 'application/json;charset=UTF-8', 'Authorization': '***'}
+INFO - 2026-08-11 14:47:59,958 - request_client.py:62 -[request_client:request] - [POST] http://127.0.0.1:40355/api/v1/interface/call -> 200
+INFO - 14:47:59 - request_client.py:62 - [POST] http://127.0.0.1:40355/api/v1/interface/call -> 200
+PASSED
+testcases/demo/test_call_api.py::test_call_api[base_info1-test_case1] INFO - 2026-08-11 14:47:59,960 - request_client.py:62 -[request_client:request] - [POST] http://127.0.0.1:40355/api/v1/auth/login -> 200
+
+-------------------------------- live log setup --------------------------------
+INFO - 14:47:59 - request_client.py:62 - [POST] http://127.0.0.1:40355/api/v1/auth/login -> 200
+INFO - 2026-08-11 14:47:59,962 - request_client.py:62 -[request_client:request] - [POST] http://127.0.0.1:40355/api/v1/interface/publish -> 200
+INFO - 14:47:59 - request_client.py:62 - [POST] http://127.0.0.1:40355/api/v1/interface/publish -> 200
+INFO - 2026-08-11 14:47:59,962 - request_client.py:85 -[request_client:run] - 接口: 调用已发布接口 | 用例: 调用-鉴权失败
+-------------------------------- live log call ---------------------------------
+INFO - 14:47:59 - request_client.py:85 - 接口: 调用已发布接口 | 用例: 调用-鉴权失败
+INFO - 2026-08-11 14:47:59,963 - request_client.py:86 -[request_client:run] - 请求: POST http://127.0.0.1:40355/api/v1/interface/call
+INFO - 14:47:59 - request_client.py:86 - 请求: POST http://127.0.0.1:40355/api/v1/interface/call
+INFO - 2026-08-11 14:47:59,963 - request_client.py:87 -[request_client:run] - Header: {'Content-Type': 'application/json;charset=UTF-8', 'Authorization': '***'}
+INFO - 14:47:59 - request_client.py:87 - Header: {'Content-Type': 'application/json;charset=UTF-8', 'Authorization': '***'}
+INFO - 2026-08-11 14:47:59,964 - request_client.py:62 -[request_client:request] - [POST] http://127.0.0.1:40355/api/v1/interface/call -> 401
+INFO - 14:47:59 - request_client.py:62 - [POST] http://127.0.0.1:40355/api/v1/interface/call -> 401
+PASSED
+testcases/demo/test_login.py::test_login[base_info0-test_case0] INFO - 2026-08-11 14:47:59,966 - request_client.py:85 -[request_client:run] - 接口: API 平台登录 | 用例: 正常登录-获取Token
+
+-------------------------------- live log call ---------------------------------
+INFO - 14:47:59 - request_client.py:85 - 接口: API 平台登录 | 用例: 正常登录-获取Token
+INFO - 2026-08-11 14:47:59,966 - request_client.py:86 -[request_client:run] - 请求: POST http://127.0.0.1:40355/api/v1/auth/login
+INFO - 14:47:59 - request_client.py:86 - 请求: POST http://127.0.0.1:40355/api/v1/auth/login
+INFO - 2026-08-11 14:47:59,966 - request_client.py:87 -[request_client:run] - Header: {'Content-Type': 'application/json;charset=UTF-8'}
+INFO - 14:47:59 - request_client.py:87 - Header: {'Content-Type': 'application/json;charset=UTF-8'}
+INFO - 2026-08-11 14:47:59,967 - request_client.py:62 -[request_client:request] - [POST] http://127.0.0.1:40355/api/v1/auth/login -> 200
+INFO - 14:47:59 - request_client.py:62 - [POST] http://127.0.0.1:40355/api/v1/auth/login -> 200
+PASSED
+testcases/demo/test_login.py::test_login[base_info1-test_case1] INFO - 2026-08-11 14:47:59,970 - request_client.py:85 -[request_client:run] - 接口: API 平台登录 | 用例: 登录失败-密码错误
+
+-------------------------------- live log call ---------------------------------
+INFO - 14:47:59 - request_client.py:85 - 接口: API 平台登录 | 用例: 登录失败-密码错误
+INFO - 2026-08-11 14:47:59,970 - request_client.py:86 -[request_client:run] - 请求: POST http://127.0.0.1:40355/api/v1/auth/login
+INFO - 14:47:59 - request_client.py:86 - 请求: POST http://127.0.0.1:40355/api/v1/auth/login
+INFO - 2026-08-11 14:47:59,970 - request_client.py:87 -[request_client:run] - Header: {'Content-Type': 'application/json;charset=UTF-8'}
+INFO - 14:47:59 - request_client.py:87 - Header: {'Content-Type': 'application/json;charset=UTF-8'}
+INFO - 2026-08-11 14:47:59,971 - request_client.py:62 -[request_client:request] - [POST] http://127.0.0.1:40355/api/v1/auth/login -> 401
+INFO - 14:47:59 - request_client.py:62 - [POST] http://127.0.0.1:40355/api/v1/auth/login -> 401
+PASSED
+testcases/demo/test_publish_api.py::test_publish_api[base_info0-test_case0] INFO - 2026-08-11 14:47:59,974 - request_client.py:62 -[request_client:request] - [POST] http://127.0.0.1:40355/api/v1/auth/login -> 200
+
+-------------------------------- live log setup --------------------------------
+INFO - 14:47:59 - request_client.py:62 - [POST] http://127.0.0.1:40355/api/v1/auth/login -> 200
+INFO - 2026-08-11 14:47:59,974 - request_client.py:85 -[request_client:run] - 接口: 发布新接口 | 用例: 正常发布接口
+-------------------------------- live log call ---------------------------------
+INFO - 14:47:59 - request_client.py:85 - 接口: 发布新接口 | 用例: 正常发布接口
+INFO - 2026-08-11 14:47:59,974 - request_client.py:86 -[request_client:run] - 请求: POST http://127.0.0.1:40355/api/v1/interface/publish
+INFO - 14:47:59 - request_client.py:86 - 请求: POST http://127.0.0.1:40355/api/v1/interface/publish
+INFO - 2026-08-11 14:47:59,975 - request_client.py:87 -[request_client:run] - Header: {'Content-Type': 'application/json;charset=UTF-8', 'Authorization': '***'}
+INFO - 14:47:59 - request_client.py:87 - Header: {'Content-Type': 'application/json;charset=UTF-8', 'Authorization': '***'}
+INFO - 2026-08-11 14:47:59,976 - request_client.py:62 -[request_client:request] - [POST] http://127.0.0.1:40355/api/v1/interface/publish -> 200
+INFO - 14:47:59 - request_client.py:62 - [POST] http://127.0.0.1:40355/api/v1/interface/publish -> 200
+PASSED
+testcases/demo/test_publish_api.py::test_publish_api[base_info1-test_case1] INFO - 2026-08-11 14:47:59,978 - request_client.py:62 -[request_client:request] - [POST] http://127.0.0.1:40355/api/v1/auth/login -> 200
+
+-------------------------------- live log setup --------------------------------
+INFO - 14:47:59 - request_client.py:62 - [POST] http://127.0.0.1:40355/api/v1/auth/login -> 200
+INFO - 2026-08-11 14:47:59,979 - request_client.py:85 -[request_client:run] - 接口: 发布新接口 | 用例: 发布接口-未登录
+-------------------------------- live log call ---------------------------------
+INFO - 14:47:59 - request_client.py:85 - 接口: 发布新接口 | 用例: 发布接口-未登录
+INFO - 2026-08-11 14:47:59,979 - request_client.py:86 -[request_client:run] - 请求: POST http://127.0.0.1:40355/api/v1/interface/publish
+INFO - 14:47:59 - request_client.py:86 - 请求: POST http://127.0.0.1:40355/api/v1/interface/publish
+INFO - 2026-08-11 14:47:59,979 - request_client.py:87 -[request_client:run] - Header: {'Content-Type': 'application/json;charset=UTF-8'}
+INFO - 14:47:59 - request_client.py:87 - Header: {'Content-Type': 'application/json;charset=UTF-8'}
+INFO - 2026-08-11 14:47:59,980 - request_client.py:62 -[request_client:request] - [POST] http://127.0.0.1:40355/api/v1/interface/publish -> 401
+INFO - 14:47:59 - request_client.py:62 - [POST] http://127.0.0.1:40355/api/v1/interface/publish -> 401
+PASSED
+tests/integration/test_collection_count.py::test_collected_test_count_matches_yaml_case_count PASSED
+tests/integration/test_error_paths.py::test_mock_server_exposes_non_json_response_and_client_handles_it INFO - 2026-08-11 14:48:01,818 - request_client.py:85 -[request_client:run] - 接口: plain | 用例: plain response
+
+-------------------------------- live log call ---------------------------------
+INFO - 14:48:01 - request_client.py:85 - 接口: plain | 用例: plain response
+INFO - 2026-08-11 14:48:01,818 - request_client.py:86 -[request_client:run] - 请求: GET http://127.0.0.1:39217/api/v1/plain
+INFO - 14:48:01 - request_client.py:86 - 请求: GET http://127.0.0.1:39217/api/v1/plain
+INFO - 2026-08-11 14:48:01,818 - request_client.py:87 -[request_client:run] - Header: {}
+INFO - 14:48:01 - request_client.py:87 - Header: {}
+INFO - 2026-08-11 14:48:01,820 - request_client.py:62 -[request_client:request] - [GET] http://127.0.0.1:39217/api/v1/plain -> 200
+INFO - 14:48:01 - request_client.py:62 - [GET] http://127.0.0.1:39217/api/v1/plain -> 200
+PASSED
+tests/integration/test_error_paths.py::test_mock_server_can_trigger_real_request_timeout ERROR - 2026-08-11 14:48:02,355 - request_client.py:65 -[request_client:request] - 请求超时: GET http://127.0.0.1:36595/api/v1/slow?delay=0.15
+
+-------------------------------- live log call ---------------------------------
+ERROR - 14:48:02 - request_client.py:65 - 请求超时: GET http://127.0.0.1:36595/api/v1/slow?delay=0.15
+PASSED
+tests/integration/test_marker_independence.py::test_each_marker_level_runs_independently[smoke] PASSED
+tests/integration/test_marker_independence.py::test_each_marker_level_runs_independently[core] PASSED
+tests/integration/test_marker_independence.py::test_each_marker_level_runs_independently[regression] PASSED
+tests/integration/test_mock_server.py::test_mock_api_supports_login_publish_and_call_flow PASSED
+tests/integration/test_mock_server.py::test_mock_api_rejects_missing_or_invalid_tokens PASSED
+tests/integration/test_runner_evidence.py::test_zero_collected_tests_returns_nonzero_and_writes_metadata PASSED
+tests/unit/test_assertion_engine.py::test_legacy_contains_eq_and_ne_rules_remain_supported PASSED
+tests/unit/test_assertion_engine.py::test_selector_based_assertions_cover_common_response_checks PASSED
+tests/unit/test_assertion_engine.py::test_failed_assertions_report_rule_and_actual_value PASSED
+tests/unit/test_assertion_engine.py::test_unsupported_assertion_type_fails_explicitly PASSED
+tests/unit/test_assertion_engine.py::test_exists_and_numeric_comparison_fail_when_selector_is_missing PASSED
+tests/unit/test_compat.py::test_allure_compat_is_importable_without_allure_pytest PASSED
+tests/unit/test_compat.py::test_jsonpath_util_reads_nested_fields_and_lists PASSED
+tests/unit/test_config_and_runner.py::test_config_precedence_cli_over_env_over_named_file_over_defaults PASSED
+tests/unit/test_config_and_runner.py::test_invalid_boolean_environment_value_is_rejected PASSED
+tests/unit/test_config_and_runner.py::test_build_pytest_args_separates_junit_and_allure_outputs PASSED
+tests/unit/test_config_and_runner.py::test_build_pytest_args_omits_allure_options_when_plugin_missing PASSED
+tests/unit/test_config_and_runner.py::test_resolve_level_prefers_explicit_level_and_supports_legacy_flags PASSED
+tests/unit/test_config_and_runner.py::test_environment_can_disable_mock_mode PASSED
+tests/unit/test_config_and_runner.py::test_cli_api_overrides_are_built_from_parser_values PASSED
+tests/unit/test_context_integration.py::test_extractor_writes_jsonpath_value_to_injected_context PASSED
+tests/unit/test_context_integration.py::test_request_base_dynamic_replacement_reads_its_own_context PASSED
+tests/unit/test_context_integration.py::test_runtime_context_does_not_create_extract_yaml PASSED
+tests/unit/test_request_and_headers.py::test_request_client_forwards_json_exactly_once INFO - 2026-08-11 14:48:12,355 - request_client.py:62 -[request_client:request] - [POST] http://example.test/items -> 200
+
+-------------------------------- live log call ---------------------------------
+INFO - 14:48:12 - request_client.py:62 - [POST] http://example.test/items -> 200
+PASSED
+tests/unit/test_request_and_headers.py::test_case_headers_override_base_headers PASSED
+tests/unit/test_request_and_headers.py::test_null_case_header_removes_inherited_header PASSED
+tests/unit/test_request_and_headers.py::test_sanitizer_masks_sensitive_headers_recursively PASSED
+tests/unit/test_request_and_headers.py::test_request_base_applies_runtime_timeout_and_tls_verification PASSED
+tests/unit/test_request_and_headers.py::test_request_client_forwards_non_json_payload_types[data-value0] INFO - 2026-08-11 14:48:12,359 - request_client.py:62 -[request_client:request] - [POST] http://example.test/items -> 200
+
+-------------------------------- live log call ---------------------------------
+INFO - 14:48:12 - request_client.py:62 - [POST] http://example.test/items -> 200
+PASSED
+tests/unit/test_request_and_headers.py::test_request_client_forwards_non_json_payload_types[params-value1] INFO - 2026-08-11 14:48:12,360 - request_client.py:62 -[request_client:request] - [POST] http://example.test/items -> 200
+
+-------------------------------- live log call ---------------------------------
+INFO - 14:48:12 - request_client.py:62 - [POST] http://example.test/items -> 200
+PASSED
+tests/unit/test_request_and_headers.py::test_request_client_forwards_non_json_payload_types[files-value2] INFO - 2026-08-11 14:48:12,361 - request_client.py:62 -[request_client:request] - [POST] http://example.test/items -> 200
+
+-------------------------------- live log call ---------------------------------
+INFO - 14:48:12 - request_client.py:62 - [POST] http://example.test/items -> 200
+PASSED
+tests/unit/test_request_and_headers.py::test_request_client_reraises_timeout ERROR - 2026-08-11 14:48:12,362 - request_client.py:65 -[request_client:request] - 请求超时: GET http://example.test/slow
+
+-------------------------------- live log call ---------------------------------
+ERROR - 14:48:12 - request_client.py:65 - 请求超时: GET http://example.test/slow
+PASSED
+tests/unit/test_request_and_headers.py::test_request_client_reraises_connection_error ERROR - 2026-08-11 14:48:12,362 - request_client.py:68 -[request_client:request] - 连接失败: GET http://example.test/offline
+
+-------------------------------- live log call ---------------------------------
+ERROR - 14:48:12 - request_client.py:68 - 连接失败: GET http://example.test/offline
+PASSED
+tests/unit/test_request_and_headers.py::test_allure_request_header_attachment_is_sanitized INFO - 2026-08-11 14:48:12,363 - request_client.py:85 -[request_client:run] - 接口: demo | 用例: sanitized
+
+-------------------------------- live log call ---------------------------------
+INFO - 14:48:12 - request_client.py:85 - 接口: demo | 用例: sanitized
+INFO - 2026-08-11 14:48:12,363 - request_client.py:86 -[request_client:run] - 请求: GET http://example.test/items
+INFO - 14:48:12 - request_client.py:86 - 请求: GET http://example.test/items
+INFO - 2026-08-11 14:48:12,363 - request_client.py:87 -[request_client:run] - Header: {'Authorization': '***', 'X-Trace': 'safe'}
+INFO - 14:48:12 - request_client.py:87 - Header: {'Authorization': '***', 'X-Trace': 'safe'}
+INFO - 2026-08-11 14:48:12,363 - request_client.py:62 -[request_client:request] - [GET] http://example.test/items -> 200
+INFO - 14:48:12 - request_client.py:62 - [GET] http://example.test/items -> 200
+PASSED
+tests/unit/test_stage3_structure.py::test_stage3_uses_new_package_layout_without_legacy_directories PASSED
+tests/unit/test_stage3_structure.py::test_core_api_runner_is_importable_from_new_location PASSED
+tests/unit/test_stage3_structure.py::test_production_python_modules_have_module_docstrings[core] PASSED
+tests/unit/test_stage3_structure.py::test_production_python_modules_have_module_docstrings[utils] PASSED
+tests/unit/test_stage3_structure.py::test_production_python_modules_have_module_docstrings[mock_server] PASSED
+tests/unit/test_stage3_structure.py::test_production_python_modules_have_module_docstrings[testcases] PASSED
+tests/unit/test_stage3_structure.py::test_core_and_utils_public_apis_have_docstrings PASSED
+tests/unit/test_variable_context.py::test_scope_precedence_and_explicit_scope_lookup PASSED
+tests/unit/test_variable_context.py::test_exact_placeholder_preserves_value_type_and_embedded_placeholder_becomes_text PASSED
+tests/unit/test_variable_context.py::test_replace_variables_recurses_through_dict_list_and_tuple PASSED
+tests/unit/test_variable_context.py::test_missing_variable_raises_clear_error PASSED
+tests/unit/test_variable_context.py::test_clear_can_target_one_scope_or_all_scopes PASSED
+tests/unit/test_variable_context.py::test_instances_are_isolated_and_snapshot_is_a_copy PASSED
+tests/unit/test_yaml_loader.py::test_test_modules_reference_existing_yaml_files[test_login.py-login.yaml] PASSED
+tests/unit/test_yaml_loader.py::test_test_modules_reference_existing_yaml_files[test_publish_api.py-publish_api.yaml] PASSED
+tests/unit/test_yaml_loader.py::test_test_modules_reference_existing_yaml_files[test_call_api.py-call_api.yaml] PASSED
+tests/unit/test_yaml_loader.py::test_missing_yaml_file_raises_file_not_found PASSED
+tests/unit/test_yaml_loader.py::test_invalid_yaml_root_raises_value_error PASSED
+tests/unit/test_yaml_loader.py::test_missing_testcase_list_raises_value_error PASSED
+tests/unit/test_yaml_loader.py::test_yaml_loader_returns_every_case PASSED
+
+============================= 63 passed in 12.64s ==============================

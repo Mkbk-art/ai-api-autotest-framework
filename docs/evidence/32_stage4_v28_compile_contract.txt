@@ -1,0 +1,6 @@
+compileall PASS
+redirect mainline contract PASS
+- redirect.yaml owns absolute URL, GET, allow_redirects=false and 302/Location assertions
+- ApiRunner resolves ${short_uri} in URL and recognizes absolute URL
+- RequestClient remains the network layer
+- request_shortlink_redirect helper removed from production/test business code

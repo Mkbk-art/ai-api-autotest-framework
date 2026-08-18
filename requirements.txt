@@ -1,0 +1,10 @@
+# 框架运行依赖。
+pytest>=9.0,<10
+requests>=2.28
+pyyaml>=6.0
+allure-pytest>=2.13
+
+# 通用 MySQL YAML 数据源断言驱动；只有用例真正使用 MySQL 断言时才建立连接。
+PyMySQL>=1.1
+# 通用 Redis YAML 数据源断言驱动；业务 Key 由具体被测项目的 YAML/适配层提供。
+redis>=5.0,<9

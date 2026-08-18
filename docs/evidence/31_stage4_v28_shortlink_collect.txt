@@ -1,0 +1,64 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.5, pytest-9.0.2, pluggy-1.6.0 -- /opt/pyvenv/bin/python
+cachedir: .pytest_cache
+metadata: {'Python': '3.13.5', 'Platform': 'Linux-6.18.35-x86_64-with-glibc2.41', 'Packages': {'pytest': '9.0.2', 'pluggy': '1.6.0'}, 'Plugins': {'asyncio': '1.3.0', 'metadata': '3.1.1', 'anyio': '4.13.0', 'ddtrace': '4.4.0', 'json-report': '1.5.0', 'Faker': '40.1.2', 'cov': '7.0.0'}, 'PLATFORM': 'linux/amd64', 'CI': 'true'}
+rootdir: /mnt/data/_redirect_refactor
+configfile: pytest.ini
+plugins: asyncio-1.3.0, metadata-3.1.1, anyio-4.13.0, ddtrace-4.4.0, json-report-1.5.0, Faker-40.1.2, cov-7.0.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 6 items
+
+<Dir _redirect_refactor>
+  <Package testcases>
+    <Package shortlink>
+      <Module test_auth.py>
+        真实短链接 SaaS 登录 smoke 测试。
+        
+        本模块验证最基础的真实鉴权入口：YAML 从 OS 环境变量读取专用测试账号，ApiRunner
+        通过 Gateway 调用登录接口，断言 HTTP/业务成功并把 ``data.token`` 提取到当前测试
+        自己的 scenario VariableContext。该 token 后续只在当前测试生命周期内使用。
+        <Function test_shortlink_login[base_info0-test_case0]>
+          真实登录成功后，统一断言应通过且 token 应写入 scenario 上下文。
+      <Module test_create.py>
+        真实短链接 SaaS 创建 smoke 测试。
+        
+        本模块通过 fixture 独立完成登录和 Group 查询，再由 YAML + ApiRunner 创建一条原始
+        链接为 ``https://github.com/`` 的永久短链。测试完成后无论断言成功还是失败，都会
+        通过真实回收站 save/remove 接口清理已创建数据，避免反复 smoke 污染用户数据库。
+        <Function test_shortlink_create[base_info0-test_case0]>
+          当前真实分组应能创建 GitHub 永久短链，并得到完整短码标识。
+      <Module test_group.py>
+        真实短链接 SaaS 分组查询 smoke 测试。
+        
+        测试函数不依赖 Login 测试先运行；``shortlink_authenticated_context`` fixture 会在本条
+        测试 Setup 阶段独立登录。随后 YAML 使用 scenario 中的 username/token 查询分组，并
+        把首个 ``gid`` 提取到当前 VariableContext，为创建短链接提供真实业务前置。
+        <Function test_shortlink_group_list[base_info0-test_case0]>
+          鉴权成功后应查询到非空分组，并把首个 gid 保存到当前 scenario。
+      <Module test_page.py>
+        真实短链接 SaaS 分页查询 smoke 测试。
+        
+        ``shortlink_created_context`` 在 Setup 中独立执行 Login → Group → Create，并在 Teardown
+        自动清理短链。测试 Call 阶段只负责查询真实 Page 接口，在 records 中精确找到本测试
+        刚创建的短链，并核对 gid、GitHub originUrl 和 ``enableStatus=0`` 字段契约。
+        <Function test_shortlink_page_contains_created_link[base_info0-test_case0]>
+          Page records 应包含刚创建的 GitHub 短链，并保持核心字段一致。
+      <Module test_redirect.py>
+        真实短链接 SaaS 302 Redirect smoke 测试。
+        
+        测试 Setup 通过 fixture 独立完成 Login → Group → Create，并把 ``short_uri`` 写入
+        VariableContext。测试 Call 阶段不再调用专用网络 helper，而是把 ``redirect.yaml``
+        中的绝对 URL、GET、``allow_redirects: false`` 和断言完整交给 ApiRunner 主链执行。
+        <Function test_shortlink_redirects_to_github[base_info0-test_case0]>
+          新创建短链应通过 YAML 主链返回 302 并指向 GitHub 官网。
+      <Module test_statistics.py>
+        真实短链接 SaaS 异步访问统计 smoke 测试。
+        
+        测试 Setup 独立创建 GitHub 短链，Call 阶段先访问一次真实 Redirect 触发统计事件，再通过
+        Gateway/Admin Stats API 有界轮询 Redis Stream Consumer 的异步落库结果。轮询成功条件
+        为 PV/UV/UIP 均至少为 1；fixture Teardown 最后自动清理测试短链。
+        <Function test_shortlink_redirect_updates_statistics[base_info0-test_case0]>
+          访问新短链后，Stats API 应在 15 秒最终一致性窗口内出现 PV/UV/UIP。
+
+- generated xml file: /mnt/data/_redirect_refactor/reports/runs/20260813T151758000325Z/junit.xml -
+========================== 6 tests collected in 0.03s ==========================

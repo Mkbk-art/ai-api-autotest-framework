@@ -1,0 +1,385 @@
+# 短链接真实项目：Group、Create、Page、Recycle/Storage 业务域用例。
+# 同一业务域集中在一份 YAML 中，避免过去“一种异常一个 YAML / 一个 Python 文件”的碎片化结构。
+# level/tags 由 CaseLoader 自动转换成 Pytest marker；workflow 仅用于复杂业务流程的轻量编排。
+
+# ==================== Group ====================
+- baseInfo:
+    # api_name 只用于日志和报告展示。
+    api_name: 查询当前用户短链接分组
+    # Group 通过 Gateway 相对路径访问。
+    url: /api/short-link/admin/v1/group
+    # 查询分组使用 GET。
+    method: GET
+    # 当前项目 Gateway 鉴权使用 username/token 两个 Header。
+    header:
+      # username 已由认证 fixture 写入 VariableContext。
+      username: ${username}
+      # token 由 auth.yaml 登录成功后提取。
+      token: ${token}
+  testCase:
+    # Smoke：查询当前用户分组，并把首个 gid 提取给后续 Create/Page。
+    - case_name: 登录用户查询分组成功并提取首个 gid
+      # 这是主业务链前置，因此属于 smoke。
+      level: smoke
+      # group marker 用于业务域筛选。
+      tags: [real, shortlink, group]
+      # fixture 可通过 workflow 精确复用这条 YAML，不复制接口定义。
+      workflow: group_success
+      # extract 把首个 gid 写入 scenario 运行时上下文。
+      extract:
+        # 后续 ${gid} 自动从 VariableContext 获取。
+        gid: $.data[0].gid
+      # 响应契约由统一断言引擎执行。
+      validation:
+        # HTTP 层必须成功。
+        - status_code: 200
+        # 业务 code 必须成功。
+        - eq: [$.code, "0"]
+        # 至少存在一个可用于测试的分组。
+        - exists: $.data[0].gid
+
+# 缺 token 的 Group 请求必须独立 baseInfo，不能继承正常 Header 后再在 Python 删除字段。
+- baseInfo:
+    # 报告中明确这是未授权查询分组场景。
+    api_name: 未携带 token 查询短链接分组
+    # 接口地址仍与正常 Group 一致。
+    url: /api/short-link/admin/v1/group
+    # 请求方法不变，确保唯一变量就是“缺 token”。
+    method: GET
+    # Header 只保留 username，故意不声明 token。
+    header:
+      # 用户名直接来自当前项目环境 YAML，因此无需登录 fixture。
+      username: ${config(shortlink,username)}
+  testCase:
+    # Core：缺 token 应由 Gateway 在进入业务服务前拒绝。
+    - case_name: 缺少 token 查询分组时 Gateway 应返回 401
+      # 鉴权负向场景属于 core。
+      level: core
+      # unauthorized/negative 描述预期失败层次。
+      tags: [real, shortlink, group, unauthorized, negative]
+      # workflow 让 Python 不加载登录前置。
+      workflow: group_unauthorized
+      # Gateway 401 契约完全写在 YAML。
+      validation:
+        # HTTP 层应直接返回 401。
+        - status_code: 401
+        # 返回体 status 与 HTTP 状态保持一致。
+        - eq: [$.status, 401]
+        # 错误消息用于证明失败来自 Token 校验层。
+        - eq: [$.message, "Token validation error"]
+
+# ==================== Create ====================
+- baseInfo:
+    # Create 是短链接项目当前最核心的写业务接口。
+    api_name: 创建永久短链接
+    # 通过 Gateway/Admin 暴露的创建路径调用真实系统。
+    url: /api/short-link/admin/v1/create
+    # 创建动作使用 POST。
+    method: POST
+    # 正常 Create 需要 JSON Header 和 Gateway 鉴权 Header。
+    header:
+      # 声明 JSON 请求体格式。
+      Content-Type: application/json
+      # username 来自登录运行时上下文。
+      username: ${username}
+      # token 来自登录响应提取。
+      token: ${token}
+  testCase:
+    # Smoke：使用当前分组创建一条永久短链。
+    - case_name: 登录用户在首个分组创建永久短链接成功
+      # Create 主路径属于 smoke。
+      level: smoke
+      # create marker 用于模块筛选。
+      tags: [real, shortlink, create]
+      # fixture 通过 create_success 复用这一份请求体作为前置数据源。
+      workflow: create_success
+      # YAML anchor 让后面的非法输入/数据库一致性 Case 复用同一组业务字段。
+      json: &create_body
+        # domain 属于当前短链接 SUT 配置，可在环境 YAML 中动态修改。
+        domain: ${config(shortlink,domain)}
+        # 原始 URL 是业务测试数据；要更换目标站点只改 YAML，不改 Python。
+        originUrl: https://www.doubao.com/
+        # gid 来自 Group 响应提取。
+        gid: ${gid}
+        # createdType=1 表示控制台创建，是当前真实业务约定。
+        createdType: 1
+        # validDateType=0 表示永久有效。
+        validDateType: 0
+        # 永久有效没有具体过期时间，因此使用 null。
+        validDate: null
+        # timestamp_ms() 保证测试数据描述可区分不同执行批次。
+        describe: api-autotest-${timestamp_ms()}
+      # Create 响应中的关键业务变量统一通过 extract 保存。
+      extract: &create_extract
+        # fullShortUrl 是后续 Redirect 的完整短链地址。
+        short_url: $.data.fullShortUrl
+        # originUrl 用于动态校验 302 Location，不再写死某个站点。
+        origin_url: $.data.originUrl
+        # 回显 gid 用于验证分组一致性。
+        created_gid: $.data.gid
+      # 正常创建的基础响应契约。
+      validation:
+        # HTTP 层成功。
+        - status_code: 200
+        # 业务层成功。
+        - eq: [$.code, "0"]
+        # 成功必须生成完整短链。
+        - exists: $.data.fullShortUrl
+        # 成功响应必须回显原始 URL。
+        - exists: $.data.originUrl
+        # 成功响应必须包含所属 gid。
+        - exists: $.data.gid
+
+    # Core：只改变 originUrl，其余鉴权和业务字段与正常 Create 保持一致。
+    - case_name: 非法 originUrl 不应生成短链接
+      # 非法输入属于 core。
+      level: core
+      # invalid_input/negative 说明正确结果是业务拒绝。
+      tags: [real, shortlink, create, invalid_input, negative]
+      # 与成功创建共享同一个认证前置。
+      workflow: create_invalid
+      # 继承正常创建请求体，确保只改变一个测试变量。
+      json:
+        # YAML merge 复用所有正常字段。
+        <<: *create_body
+        # 故意使用不是 HTTP/HTTPS URL 的文本。
+        originUrl: not-a-valid-url
+        # 单独描述方便后端日志识别异常用例。
+        describe: api-autotest-invalid-origin-${timestamp_ms()}
+      # 当前真实后端以 HTTP 200 + 非零业务 code 表示该类校验失败。
+      validation:
+        # HTTP 请求仍成功到达业务服务。
+        - status_code: 200
+        # 业务 code 必须不是成功值。
+        - ne: [$.code, "0"]
+        # 失败不能生成 fullShortUrl。
+        - not_exists: $.data.fullShortUrl
+
+    # Regression：成功 Create 后立即用通用 MySQL 断言检查真实持久化状态。
+    - case_name: 创建成功后 MySQL 物理分表应保存一致业务数据
+      # 数据层一致性归入 regression。
+      level: regression
+      # database marker 允许单独执行数据库类场景。
+      tags: [real, shortlink, create, database]
+      # 请求业务流程仍然是普通创建。
+      workflow: create_db
+      # 复用与 Smoke 完全相同的请求体，避免两套 Create 数据源。
+      json: *create_body
+      # 复用同一组响应提取规则。
+      extract: *create_extract
+      # 同一 validation 中同时表达 HTTP 和 MySQL 契约。
+      validation:
+        # Create HTTP 必须成功。
+        - status_code: 200
+        # Create 业务 code 必须成功。
+        - eq: [$.code, "0"]
+        # link_table 由短链接 adapter 根据 gid + Sharding 配置计算；db_exists 本身完全通用。
+        - db_exists:
+            # source 对应 data_sources.mysql.default。
+            source: default
+            # 表名是项目适配层生成的可信运行时变量；值条件继续使用参数绑定。
+            sql: "SELECT id FROM `${link_table}` WHERE gid=%s AND CONCAT('http://', full_short_url)=%s LIMIT 1"
+            # params 在请求提取完成后从 VariableContext 动态替换。
+            params: ["${gid}", "${short_url}"]
+        # origin_url 必须与 API 响应/请求业务数据一致。
+        - db_eq:
+            # 使用同一个 MySQL 数据源。
+            source: default
+            # SQL 只属于短链接 SUT 的项目 YAML，不进入通用 db Client。
+            sql: "SELECT origin_url FROM `${link_table}` WHERE gid=%s AND CONCAT('http://', full_short_url)=%s LIMIT 1"
+            # 查询当前创建的唯一业务记录。
+            params: ["${gid}", "${short_url}"]
+            # expected 来自当前 Create 响应提取。
+            expected: ${origin_url}
+        # 新创建短链的初始 enable_status 应为 0。
+        - db_eq:
+            # 使用默认 MySQL 数据源。
+            source: default
+            # 查询当前记录的启用状态。
+            sql: "SELECT enable_status FROM `${link_table}` WHERE gid=%s AND CONCAT('http://', full_short_url)=%s LIMIT 1"
+            # 参数仍然绑定，不拼接业务值。
+            params: ["${gid}", "${short_url}"]
+            # 当前业务约定 0 表示正常可用。
+            expected: 0
+
+# 缺 token 的 Create 必须让 Gateway 先拒绝，因此不依赖真实 Group gid。
+- baseInfo:
+    # 报告显示为未授权 Create。
+    api_name: 未携带 token 创建短链接
+    # 仍请求真实 Create 接口。
+    url: /api/short-link/admin/v1/create
+    # HTTP 方法保持 POST。
+    method: POST
+    # Header 故意只保留 Content-Type 和 username。
+    header:
+      # 请求体仍按 JSON 发送。
+      Content-Type: application/json
+      # username 来自环境 YAML；没有 token。
+      username: ${config(shortlink,username)}
+  testCase:
+    # Core：缺 token 必须返回 Gateway 401。
+    - case_name: 缺少 token 创建短链接时 Gateway 应返回 401
+      # 鉴权异常属于 core。
+      level: core
+      # unauthorized/negative 标识预期拒绝。
+      tags: [real, shortlink, create, unauthorized, negative]
+      # workflow 不建立登录/Group 前置。
+      workflow: create_unauthorized
+      # Body 保持结构合法，避免把参数错误与鉴权错误混在一起。
+      json:
+        # domain 仍使用真实 SUT 环境配置。
+        domain: ${config(shortlink,domain)}
+        # originUrl 使用合法地址，保证唯一错误变量是 token 缺失。
+        originUrl: https://www.doubao.com/
+        # Gateway 应在业务解析 gid 前拒绝，因此这里只需要结构上合法的占位值。
+        gid: unauthorized-test-gid
+        # 与正常创建保持一致。
+        createdType: 1
+        # 与正常永久短链保持一致。
+        validDateType: 0
+        # 永久链接无到期时间。
+        validDate: null
+        # 唯一描述用于日志追踪。
+        describe: api-autotest-unauthorized-${timestamp_ms()}
+      # Gateway 层契约。
+      validation:
+        # HTTP 必须为 401。
+        - status_code: 401
+        # 返回体 status 与 HTTP 状态一致。
+        - eq: [$.status, 401]
+        # 消息证明请求被 token 校验器拒绝。
+        - eq: [$.message, "Token validation error"]
+
+# ==================== Page ====================
+- baseInfo:
+    # 分页查询用于验证刚创建的短链能通过管理接口读取。
+    api_name: 分页查询分组短链接
+    # Page 通过 Gateway 访问。
+    url: /api/short-link/admin/v1/page
+    # 查询使用 GET。
+    method: GET
+    # 需要真实登录鉴权 Header。
+    header:
+      # username 来自 scenario。
+      username: ${username}
+      # token 来自登录响应。
+      token: ${token}
+  testCase:
+    # Smoke：查询当前 gid，Python 只负责在 records 中定位本次创建记录。
+    - case_name: 查询当前分组并包含刚创建的测试短链接
+      # 这是主业务读链路，因此属于 smoke。
+      level: smoke
+      # page marker 标识管理分页域。
+      tags: [real, shortlink, page]
+      # workflow 需要“已创建短链” fixture。
+      workflow: page_success
+      # 查询参数全部保留在 YAML。
+      params:
+        # 只查询本次 Group gid。
+        gid: ${gid}
+        # 从第一页开始。
+        current: 1
+        # 读取 100 条提高定位刚创建记录的稳定性。
+        size: 100
+        # 空排序标签保留真实接口当前契约。
+        orderTag: ""
+      # 基础响应契约交给统一断言。
+      validation:
+        # HTTP 层成功。
+        - status_code: 200
+        # 业务 code 成功。
+        - eq: [$.code, "0"]
+        # records 容器必须存在；精确记录匹配由少量 Python 业务编排完成。
+        - exists: $.data.records
+
+# ==================== Recycle / Storage ====================
+# 以下两个 Regression 都是多步骤状态流；Python 只负责 Save/Remove 顺序，数据预期仍在 YAML。
+- baseInfo:
+    # baseInfo 作为该业务域流程的报告元信息；真实 Save/Remove 路径来自环境项目配置。
+    api_name: 短链接回收与存储状态一致性
+    # 这里保留真实 Save 入口，便于 YAML 自描述。
+    url: /api/short-link/admin/v1/recycle-bin/save
+    # 回收动作使用 POST。
+    method: POST
+  testCase:
+    # Regression：观察进入回收站和逻辑删除后的 MySQL 状态迁移。
+    - case_name: 回收和逻辑删除状态应真实持久化到 MySQL
+      # 深层持久化一致性归入 regression。
+      level: regression
+      # recycle/database 说明业务状态和数据源类型。
+      tags: [real, shortlink, recycle, database]
+      # workflow 告诉 test_link.py 需要执行 Create -> Save -> Remove。
+      workflow: recycle_db
+      # Save 后立即执行第一组数据源断言。
+      after_save_validation:
+        # enable_status 应从正常状态变为回收状态。
+        - db_eq:
+            # 使用默认 MySQL 数据源。
+            source: default
+            # link_table 来自项目 adapter 的 ShardingSphere 路由计算。
+            sql: "SELECT enable_status FROM `${link_table}` WHERE gid=%s AND full_short_url=%s LIMIT 1"
+            # 查询当前测试短链。
+            params: ["${gid}", "${full_short_url}"]
+            # 当前 SUT 中 1 表示已进入回收站。
+            expected: 1
+        # Save 只是回收，尚未逻辑删除。
+        - db_eq:
+            # 使用默认 MySQL 数据源。
+            source: default
+            # 查询逻辑删除标志。
+            sql: "SELECT del_flag FROM `${link_table}` WHERE gid=%s AND full_short_url=%s LIMIT 1"
+            # 参数来自运行时上下文。
+            params: ["${gid}", "${full_short_url}"]
+            # Save 后仍应为 0。
+            expected: 0
+      # Remove 后再验证最终逻辑删除状态。
+      after_remove_validation:
+        # del_flag 必须变成 1。
+        - db_eq:
+            # 使用默认 MySQL 数据源。
+            source: default
+            # 查询当前记录 del_flag。
+            sql: "SELECT del_flag FROM `${link_table}` WHERE gid=%s AND full_short_url=%s LIMIT 1"
+            # 定位当前短链。
+            params: ["${gid}", "${full_short_url}"]
+            # 1 表示逻辑删除完成。
+            expected: 1
+        # del_time 必须写入非零时间戳。
+        - db_gte:
+            # 使用默认 MySQL 数据源。
+            source: default
+            # 查询逻辑删除时间。
+            sql: "SELECT del_time FROM `${link_table}` WHERE gid=%s AND full_short_url=%s LIMIT 1"
+            # 定位当前短链。
+            params: ["${gid}", "${full_short_url}"]
+            # 大于等于 1 足以证明不是默认 0。
+            expected: 1
+
+    # Regression：观察 Create 与 Recycle 对 Redis 跳转缓存的生命周期影响。
+    - case_name: Create 缓存应存在且进入回收站后 Redis 跳转缓存应删除
+      # 缓存一致性归入 regression。
+      level: regression
+      # redis marker 允许独立筛选缓存类场景。
+      tags: [real, shortlink, recycle, redis]
+      # workflow 使用同一个 Create -> Save -> Remove 生命周期。
+      workflow: goto_cache
+      # Create 成功后先验证跳转缓存。
+      after_create_validation:
+        # Redis String 值必须等于真实 origin_url。
+        - redis_eq:
+            # source 对应 data_sources.redis.default。
+            source: default
+            # goto_redis_key 由项目 adapter 使用前缀 + full_short_url 构造。
+            key: ${goto_redis_key}
+            # expected 来自 Create 响应提取，不写死目标站点。
+            expected: ${origin_url}
+      # Save 进入回收站后，跳转缓存应该被失效。
+      after_save_validation:
+        # 通用 redis_exists 支持 expected=false 表达“不存在”。
+        - redis_exists:
+            # 使用默认 Redis 数据源。
+            source: default
+            # 检查同一个 goto Key。
+            key: ${goto_redis_key}
+            # false 表示 Key 必须已删除。
+            expected: false

@@ -1,0 +1,110 @@
+# 短链接真实项目：Statistics 业务域用例。
+# 请求参数、最终一致性轮询和 MySQL 校验都由 YAML 声明；Python 只负责先访问短链触发事件。
+# poll 是框架通用能力，未来订单/消息等异步项目也可以直接复用。
+- baseInfo:
+    # api_name 用于报告标识统计查询接口。
+    api_name: 查询短链接访问统计
+    # 相对路径由 ApiRunner 与当前环境 Gateway host 拼接。
+    url: /api/short-link/admin/v1/stats
+    # 查询统计使用 GET。
+    method: GET
+    # 当前项目 Gateway 通过 username/token Header 鉴权。
+    header:
+      # username 来自登录前置写入的 VariableContext。
+      username: ${username}
+      # token 来自 auth.yaml extract。
+      token: ${token}
+  testCase:
+    # Smoke：一次真实访问后，统计接口最终应看到 PV/UV/UIP。
+    - case_name: 新创建短链接访问后应产生 PV UV UIP
+      # 主链统计能力属于 smoke。
+      level: smoke
+      # statistics 标签用于业务模块筛选。
+      tags: [real, shortlink, statistics]
+      # workflow 表明调用统计前需要创建并访问真实短链。
+      workflow: statistics_success
+      # params 完整声明 Stats Query 参数，不在 Python 重复拼接。
+      params: &stats_params
+        # fullShortUrl 来自 Create 结果规范化后的运行时变量。
+        fullShortUrl: ${full_short_url}
+        # gid 来自 Group/Create 上下文。
+        gid: ${gid}
+        # enableStatus 是真实后端 SQL 所需状态条件，不能省略。
+        enableStatus: 0
+        # startDate 通过 DebugTalk 动态生成当天起点。
+        startDate: ${today_str()} 00:00:00
+        # endDate 对应当天结束时间。
+        endDate: ${today_str()} 23:59:59
+      # poll 仅对显式声明的最终一致性查询生效，普通请求不会自动重试。
+      poll: &stats_poll
+        # 最多等待 15 秒让 Redis Stream 消费和数据库写入完成。
+        timeout_seconds: 15
+        # 每秒重新查询一次 Stats，而不是固定 sleep 后赌一次结果。
+        interval_seconds: 1
+      # HTTP/业务统计契约全部由 YAML validation 表达。
+      validation: &stats_validation
+        # Stats HTTP 请求必须成功。
+        - status_code: 200
+        # 业务 code 必须为成功值。
+        - eq: [$.code, "0"]
+        # 一次访问后 PV 至少为 1；不要求精确 1，避免环境历史数据造成假失败。
+        - gte: [$.data.pv, 1]
+        # UV 同样验证下界。
+        - gte: [$.data.uv, 1]
+        # UIP 同样验证下界。
+        - gte: [$.data.uip, 1]
+
+    # Regression：在 API 最终可见之后，再验证 MySQL 统计持久化结果。
+    - case_name: 异步统计最终结果应持久化到 MySQL 访问统计表
+      # 数据持久化一致性归入 regression。
+      level: regression
+      # database 标签允许单独筛选 MySQL 相关用例。
+      tags: [real, shortlink, statistics, database]
+      # 与 Smoke 使用相同业务触发流程。
+      workflow: statistics_db
+      # 复用同一组统计请求参数，避免复制业务字段。
+      params: *stats_params
+      # 复用同一有界轮询策略。
+      poll: *stats_poll
+      # 同一个 validation 中既可写响应断言，也可写通用数据库断言。
+      validation:
+        # HTTP 层必须成功。
+        - status_code: 200
+        # 业务层必须成功。
+        - eq: [$.code, "0"]
+        # API 返回 PV 至少为 1。
+        - gte: [$.data.pv, 1]
+        # API 返回 UV 至少为 1。
+        - gte: [$.data.uv, 1]
+        # API 返回 UIP 至少为 1。
+        - gte: [$.data.uip, 1]
+        # t_link_access_stats 是当前 SUT 的业务表；SQL 只存在项目 YAML，不进入框架 core/db。
+        - db_gte:
+            # source 对应 data_sources.mysql.default。
+            source: default
+            # SQL 使用参数绑定，不把 full_short_url 直接拼进值条件。
+            sql: "SELECT COALESCE(SUM(pv), 0) FROM t_link_access_stats WHERE full_short_url=%s AND date=CURDATE()"
+            # params 支持 VariableContext 动态替换。
+            params: ["${full_short_url}"]
+            # 一次有效访问至少应持久化一个 PV。
+            expected: 1
+        # UV 使用同一种通用 db_gte 断言，不需要新增 Python 查询函数。
+        - db_gte:
+            # 使用默认 MySQL 数据源。
+            source: default
+            # 当前 SQL 仅属于短链接项目适配数据。
+            sql: "SELECT COALESCE(SUM(uv), 0) FROM t_link_access_stats WHERE full_short_url=%s AND date=CURDATE()"
+            # 查询当前创建的 full_short_url。
+            params: ["${full_short_url}"]
+            # 至少一个 UV。
+            expected: 1
+        # UIP 持久化继续通过同一个断言类型表达。
+        - db_gte:
+            # 使用默认 MySQL 数据源。
+            source: default
+            # 查询 UIP 汇总字段。
+            sql: "SELECT COALESCE(SUM(uip), 0) FROM t_link_access_stats WHERE full_short_url=%s AND date=CURDATE()"
+            # 绑定当前短链标识。
+            params: ["${full_short_url}"]
+            # 至少一个 UIP。
+            expected: 1

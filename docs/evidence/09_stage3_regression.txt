@@ -1,0 +1,45 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.5, pytest-9.0.2, pluggy-1.6.0 -- /opt/pyvenv/bin/python
+cachedir: .pytest_cache
+metadata: {'Python': '3.13.5', 'Platform': 'Linux-6.18.35-x86_64-with-glibc2.41', 'Packages': {'pytest': '9.0.2', 'pluggy': '1.6.0'}, 'Plugins': {'cov': '7.0.0', 'json-report': '1.5.0', 'metadata': '3.1.1', 'asyncio': '1.3.0', 'anyio': '4.13.0', 'ddtrace': '4.4.0', 'Faker': '40.1.2'}, 'PLATFORM': 'linux/amd64', 'CI': 'true'}
+rootdir: /mnt/data/ai-api-autotest-framework-stage3-work
+configfile: pytest.ini
+plugins: cov-7.0.0, json-report-1.5.0, metadata-3.1.1, asyncio-1.3.0, anyio-4.13.0, ddtrace-4.4.0, Faker-40.1.2
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 6 items / 4 deselected / 2 selected
+
+testcases/demo/test_call_api.py::test_call_api[base_info0-test_case0] INFO - 2026-08-11 14:44:38,372 - request_client.py:62 -[request_client:request] - [POST] http://127.0.0.1:40563/api/v1/auth/login -> 200
+
+-------------------------------- live log setup --------------------------------
+INFO - 14:44:38 - request_client.py:62 - [POST] http://127.0.0.1:40563/api/v1/auth/login -> 200
+INFO - 2026-08-11 14:44:38,374 - request_client.py:62 -[request_client:request] - [POST] http://127.0.0.1:40563/api/v1/interface/publish -> 200
+INFO - 14:44:38 - request_client.py:62 - [POST] http://127.0.0.1:40563/api/v1/interface/publish -> 200
+INFO - 2026-08-11 14:44:38,375 - request_client.py:85 -[request_client:run] - 接口: 调用已发布接口 | 用例: 正常调用接口
+-------------------------------- live log call ---------------------------------
+INFO - 14:44:38 - request_client.py:85 - 接口: 调用已发布接口 | 用例: 正常调用接口
+INFO - 2026-08-11 14:44:38,375 - request_client.py:86 -[request_client:run] - 请求: POST http://127.0.0.1:40563/api/v1/interface/call
+INFO - 14:44:38 - request_client.py:86 - 请求: POST http://127.0.0.1:40563/api/v1/interface/call
+INFO - 2026-08-11 14:44:38,375 - request_client.py:87 -[request_client:run] - Header: {'Content-Type': 'application/json;charset=UTF-8', 'Authorization': '***'}
+INFO - 14:44:38 - request_client.py:87 - Header: {'Content-Type': 'application/json;charset=UTF-8', 'Authorization': '***'}
+INFO - 2026-08-11 14:44:38,377 - request_client.py:62 -[request_client:request] - [POST] http://127.0.0.1:40563/api/v1/interface/call -> 200
+INFO - 14:44:38 - request_client.py:62 - [POST] http://127.0.0.1:40563/api/v1/interface/call -> 200
+PASSED
+testcases/demo/test_call_api.py::test_call_api[base_info1-test_case1] INFO - 2026-08-11 14:44:38,383 - request_client.py:62 -[request_client:request] - [POST] http://127.0.0.1:40563/api/v1/auth/login -> 200
+
+-------------------------------- live log setup --------------------------------
+INFO - 14:44:38 - request_client.py:62 - [POST] http://127.0.0.1:40563/api/v1/auth/login -> 200
+INFO - 2026-08-11 14:44:38,385 - request_client.py:62 -[request_client:request] - [POST] http://127.0.0.1:40563/api/v1/interface/publish -> 200
+INFO - 14:44:38 - request_client.py:62 - [POST] http://127.0.0.1:40563/api/v1/interface/publish -> 200
+INFO - 2026-08-11 14:44:38,385 - request_client.py:85 -[request_client:run] - 接口: 调用已发布接口 | 用例: 调用-鉴权失败
+-------------------------------- live log call ---------------------------------
+INFO - 14:44:38 - request_client.py:85 - 接口: 调用已发布接口 | 用例: 调用-鉴权失败
+INFO - 2026-08-11 14:44:38,385 - request_client.py:86 -[request_client:run] - 请求: POST http://127.0.0.1:40563/api/v1/interface/call
+INFO - 14:44:38 - request_client.py:86 - 请求: POST http://127.0.0.1:40563/api/v1/interface/call
+INFO - 2026-08-11 14:44:38,385 - request_client.py:87 -[request_client:run] - Header: {'Content-Type': 'application/json;charset=UTF-8', 'Authorization': '***'}
+INFO - 14:44:38 - request_client.py:87 - Header: {'Content-Type': 'application/json;charset=UTF-8', 'Authorization': '***'}
+INFO - 2026-08-11 14:44:38,387 - request_client.py:62 -[request_client:request] - [POST] http://127.0.0.1:40563/api/v1/interface/call -> 401
+INFO - 14:44:38 - request_client.py:62 - [POST] http://127.0.0.1:40563/api/v1/interface/call -> 401
+PASSED
+
+- generated xml file: /mnt/data/ai-api-autotest-framework-stage3-work/reports/runs/stage3-regression/junit.xml -
+======================= 2 passed, 4 deselected in 0.57s ========================

@@ -1,0 +1,43 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.5, pytest-9.0.2, pluggy-1.6.0 -- /opt/pyvenv/bin/python
+cachedir: .pytest_cache
+metadata: {'Python': '3.13.5', 'Platform': 'Linux-6.18.35-x86_64-with-glibc2.41', 'Packages': {'pytest': '9.0.2', 'pluggy': '1.6.0'}, 'Plugins': {'cov': '7.0.0', 'json-report': '1.5.0', 'metadata': '3.1.1', 'asyncio': '1.3.0', 'anyio': '4.13.0', 'ddtrace': '4.4.0', 'Faker': '40.1.2'}, 'PLATFORM': 'linux/amd64', 'CI': 'true'}
+rootdir: /mnt/data/ai-api-autotest-framework-stage3-work
+configfile: pytest.ini
+plugins: cov-7.0.0, json-report-1.5.0, metadata-3.1.1, asyncio-1.3.0, anyio-4.13.0, ddtrace-4.4.0, Faker-40.1.2
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 6 items
+
+<Dir ai-api-autotest-framework-stage3-work>
+  <Package testcases>
+    <Package demo>
+      <Module test_call_api.py>
+        Mock 接口调用 regression 用例。
+
+        用例通过 ``published_interface_context`` 独立完成登录和资源创建，验证回归层在
+        没有前置测试文件的情况下仍能执行正常调用和鉴权失败场景。
+        <Function test_call_api[base_info0-test_case0]>
+          执行 Mock 调用接口的全部 YAML regression 场景。
+        <Function test_call_api[base_info1-test_case1]>
+          执行 Mock 调用接口的全部 YAML regression 场景。
+      <Module test_login.py>
+        Mock 登录接口 smoke 用例。
+
+        本模块从 ``login.yaml`` 参数化登录成功和密码错误场景，用于快速验证最基本的
+        YAML 加载、HTTP 请求和断言链路。
+        <Function test_login[base_info0-test_case0]>
+          执行 Mock 登录接口的全部 YAML smoke 场景。
+        <Function test_login[base_info1-test_case1]>
+          执行 Mock 登录接口的全部 YAML smoke 场景。
+      <Module test_publish_api.py>
+        Mock 发布接口 core 用例。
+
+        用例通过 ``authenticated_context`` 自己准备登录状态，验证 core 层可以脱离
+        smoke 测试独立运行，同时覆盖正常发布和缺失 Token 的负向场景。
+        <Function test_publish_api[base_info0-test_case0]>
+          执行 Mock 发布接口的全部 YAML core 场景。
+        <Function test_publish_api[base_info1-test_case1]>
+          执行 Mock 发布接口的全部 YAML core 场景。
+
+- generated xml file: /mnt/data/ai-api-autotest-framework-stage3-work/reports/runs/stage3-final-collect/junit.xml -
+========================== 6 tests collected in 0.02s ==========================

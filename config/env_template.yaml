@@ -1,0 +1,47 @@
+# 新增真实项目时复制为 env.<name>.yaml；普通接入原则上只改配置和 testcases/<suite>/，不改 core/db。
+api:
+  # 当前被测系统的 API 根地址。
+  host: http://localhost:8080
+  # 单次请求超时秒数；异步最终一致性请在具体 Case 使用 YAML poll。
+  timeout: 30
+  # HTTPS 环境保持 true；仅本地受控 HTTP 环境可按需关闭。
+  verify_ssl: true
+  # 连接真实 SUT 时保持 false；框架 Demo/自测环境可设置 true。
+  use_mock: false
+
+# 声明本环境要收集的项目 suite；对应目录为 testcases/<suite>/。
+test_selection:
+  # 示例：接入订单系统后可写 [order]，无需修改公共 conftest.py。
+  include_suites: []
+
+# 命名数据源仅在项目 YAML 使用数据库/缓存断言时需要配置。
+data_sources:
+  mysql:
+    # 取消注释并按环境填写；AssertionEngine 通过 source: default 选择此连接。
+    # default:
+    #   host: 127.0.0.1
+    #   port: 3306
+    #   database: your_database
+    #   username: your_user
+    #   password: CHANGE_ME
+    #   charset: utf8mb4
+    #   connect_timeout: 5
+    {}
+  redis:
+    # 取消注释并按环境填写；不使用 Redis 断言的项目可以保持空映射。
+    # default:
+    #   host: 127.0.0.1
+    #   port: 6379
+    #   db: 0
+    #   password: null
+    #   socket_timeout: 5
+    #   protocol: 2  # 默认推荐 RESP2；若目标 Redis 明确支持 RESP3，可按项目改为 3。
+    {}
+
+# 日志和报告都属于通用框架配置，不与具体业务字段耦合。
+log:
+  # 开发排查可改 DEBUG，CI 通常保持 INFO。
+  level: DEBUG
+report:
+  # 每次 run.py 会在该目录下建立独立 run_id 子目录。
+  root_dir: reports/runs
