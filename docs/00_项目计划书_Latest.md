@@ -2395,3 +2395,94 @@ ENV_FILE = <仓库外私有覆盖 YAML 路径>
 
 完成真实 SUT Jenkins smoke。通过后 Stage 6 平台验收即可收口，进入 Stage 7 AI。
 
+---
+
+## V3.2.7 状态更新（2026-08-18）
+
+### Stage 6 外部环境配置能力：Jenkins Mock 回归验证通过
+在引入通用 `ENV_FILE` / 外部环境 YAML 覆盖能力后，已在真实 Jenkins Windows Agent 上重新执行公共 Mock Smoke，结果为：
+
+- GitHub SCM Checkout：成功
+- Workspace 独立 `.venv` 创建：成功
+- Python 3.12.3 + 依赖安装：成功
+- `run.py --env test --level smoke --run-id jenkins-17`：成功
+- Pytest 结果：`2 passed, 4 deselected`
+- JUnit：成功生成并由 Jenkins 记录
+- Artifacts：成功归档
+- Pipeline 最终状态：`SUCCESS`
+
+该次构建中 `ENV_FILE` 保持为空，因此验证的是**向后兼容性**：新增外部私有 YAML 能力后，原有公共 Mock / Demo 流程不受影响。
+
+### Stage 6 当前剩余验收
+下一步执行真实 SUT 的 Jenkins Smoke：
+
+1. 在 Jenkins Agent 仓库外建立私有配置文件，例如：
+   `C:\ProgramData\Jenkins\.jenkins\private-configs\shortlink-local.override.yaml`
+2. 私有文件只覆盖需要保密或机器相关的字段，不复制整个公共环境 YAML。
+3. Jenkins 参数：
+   - `ENV_NAME=shortlink-local`
+   - `LEVEL=smoke`
+   - `ENV_FILE=C:\ProgramData\Jenkins\.jenkins\private-configs\shortlink-local.override.yaml`
+4. 启动真实短链接 SUT 后执行。
+5. 通过后再决定是否在 Jenkins 中继续执行 `core` / `regression`。
+
+### 架构约束继续保持
+- Jenkinsfile / Framework Core 不出现短链接业务硬编码。
+- Shortlink 仅作为 `Project Adapter + Test Cases + public env example`。
+- 未来接入订单、支付、用户中心等项目时复用相同 `ENV_NAME / LEVEL / ENV_FILE` 机制。
+- 真实私有 YAML 永远位于 Git 仓库外，不上传 GitHub，不进入 Jenkins Artifacts。
+
+---
+
+## V3.2.8 状态更新（2026-08-18）
+
+### Stage 6 Jenkins 真实 SUT Smoke：已到达真实业务认证，当前阻塞于测试账号/数据匹配
+Jenkins Build #18 已验证以下链路真实可达：
+
+- GitHub SCM Checkout：成功
+- Jenkins Workspace `.venv`：成功
+- 依赖安装：成功
+- `ENV_NAME=shortlink-local`：成功选择短链接 Project Adapter
+- 外部 `ENV_FILE` 分支：已进入，Jenkins 对仓库外文件执行存在性检查并通过 `withEnv` 注入路径
+- Pytest：收集 18 条，按 smoke 选择 6 条
+- Gateway：真实请求已到达 `127.0.0.1:8000`
+- Admin 服务：登录请求已进入真实后端并执行 ShardingSphere 用户查询
+
+当前业务响应为“用户不存在”，因此首条登录 Smoke 失败，另外 5 条依赖认证 fixture 的 Smoke 在 setup 阶段连锁报错。当前证据不支持修改 Framework Core；优先排查仓库外私有 YAML 中的应用登录账号密码与当前后端数据库用户数据是否一致。
+
+### 下一步排查顺序
+1. 明确区分私有 YAML 中的“短链接应用登录密码”和“MySQL 数据库连接密码”，二者用途不同。
+2. 在当前后端实际连接的数据源中，仅按用户名检查测试账号是否存在、`del_flag` 是否为 0。
+3. 若账号存在，核对私有 YAML 的应用登录密码是否与该账号当前密码一致。
+4. 若账号不存在，确认当前后端是否连接到了与此前本地 Smoke 成功时相同的数据库/数据集，并检查 ShardingSphere 物理分片中的账号数据。
+5. 修正环境/测试数据后直接重跑 Jenkins `shortlink-local + smoke`；当前不修改 Jenkinsfile、ConfigManager、ApiRunner 或 AssertionEngine。
+
+### 架构结论
+当前失败属于真实 SUT 环境/测试数据层面的业务认证阻塞。框架已正确完成项目选择、外部配置注入、用例收集、真实 HTTP 调用与断言失败报告。
+
+---
+
+## V3.2.9 状态更新（2026-08-18）
+
+### Jenkins 当前构建报告隔离修复
+真实 Jenkins Build #19 暴露出一个通用 CI 问题：本次实际执行的是 `ENV_NAME=test`、`LEVEL=smoke`，Pytest 结果为 `2 passed, 4 deselected`，但 Jenkins 最终状态为 `UNSTABLE`。
+
+根因不是本次测试失败，而是 Jenkins Workspace 会跨构建保留文件，旧 Jenkinsfile 的 `post` 使用递归通配符读取 `reports/runs/**/junit.xml`。因此上一轮 Build #18 的失败 JUnit 与 Build #19 的成功 JUnit 被同时交给 Jenkins JUnit 插件，历史失败污染了当前构建状态。
+
+V3.2.9 将 Jenkins 报告消费范围收紧为当前构建：
+
+- JUnit：`reports/runs/jenkins-${BUILD_NUMBER}/junit.xml`
+- Reports Artifact：`reports/runs/jenkins-${BUILD_NUMBER}/**`
+- Logs：继续归档 `logs/**/*`
+
+同时新增 CI 契约测试，禁止未来重新引入跨 Build 的 JUnit 全目录通配符。该修复是纯框架/CI 能力，不包含任何短链接 SUT 业务硬编码。
+
+### Build #19 另一个重要结论
+Build #19 并不是对真实短链接环境的重试。日志中的实际命令为 `run.py --env "test" --level "smoke" --run-id "jenkins-19"`，因此它只验证 Demo/Mock 2 条 Smoke。下一次真实 SUT 验收仍需明确选择：
+
+- `ENV_NAME=shortlink-local`
+- `LEVEL=smoke`
+- `ENV_FILE=<Jenkins Agent 仓库外私有覆盖 YAML>`
+
+在 V3.2.9 Jenkins 报告隔离修复推送并经过 Mock 构建验证后，再继续真实 SUT Smoke，避免旧失败报告干扰当前 Jenkins 状态判断。
+

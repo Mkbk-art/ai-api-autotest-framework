@@ -208,19 +208,21 @@ Jenkinsfile 使用 `isUnix()` 分别选择 `sh` / `bat`，并在每次构建创�
 
 ## 8. 报告与 Artifact
 
-无论测试通过还是失败，`post { always { ... } }` 都执行：
+无论测试通过还是失败，`post { always { ... } }` 都执行，但 **只消费当前 Jenkins Build 对应的 run 目录**：
 
 ```text
 junit
-→ reports/runs/**/junit.xml
+→ reports/runs/jenkins-${BUILD_NUMBER}/junit.xml
 → Jenkins Test Result
 
 archiveArtifacts
-→ reports/runs/**/*
+→ reports/runs/jenkins-${BUILD_NUMBER}/**
 → logs/**/*
 ```
 
-外部环境 YAML 不在归档路径内。当前不强制 Jenkins Allure 插件；原始 `allure-results` 作为 Artifact 保存即可。
+Jenkins Workspace 默认会跨构建保留文件。如果递归扫描整个 `reports/runs/`，上一轮失败构建的 `junit.xml` 会在下一轮再次被 JUnit 插件读取，可能导致“当前 Pytest 全通过但 Jenkins 仍显示 UNSTABLE”。因此报告路径必须按 `BUILD_NUMBER` 隔离。旧构建报告已经由 Jenkins 自己的 Build 历史归档，不需要在新构建中重复收集。
+
+外部环境 YAML 不在归档路径内。当前不强制 Jenkins Allure 插件；原始 `allure-results` 作为当前 Build Artifact 保存即可。
 
 ## 9. 已完成的真实 Stage 6 证据
 

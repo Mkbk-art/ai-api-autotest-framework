@@ -111,12 +111,18 @@ pipeline {
 
     post {
         always {
-            // JUnit 让 Jenkins 页面直接展示通过/失败数量；即使用例失败也保留机器可读测试证据。
-            junit testResults: 'reports/runs/**/junit.xml', allowEmptyResults: true
+            // run.py 在 Jenkins 中把当前 BUILD_NUMBER 固化为 jenkins-<build> 运行目录。
+            // 必须只读取“当前 Build”的 JUnit；Jenkins Workspace 会跨构建保留文件，若使用
+            // 递归扫描整个 reports/runs 目录，会把上一轮失败结果再次读入并把本次全通过构建误标为 UNSTABLE。
+            junit(
+                testResults: "reports/runs/jenkins-${env.BUILD_NUMBER}/junit.xml",
+                allowEmptyResults: true
+            )
 
-            // 只归档报告与日志，不归档任何外部环境 YAML。
+            // Artifacts 同样只收集当前 Build 的 reports；旧 Build 的报告由 Jenkins 自己的历史构建归档保存。
+            // logs/ 继续作为框架运行日志归档，但任何仓库外 ENV_FILE 都不在 Workspace，因此不会被带入 Artifact。
             archiveArtifacts(
-                artifacts: 'reports/runs/**/*, logs/**/*',
+                artifacts: "reports/runs/jenkins-${env.BUILD_NUMBER}/**, logs/**/*",
                 allowEmptyArchive: true,
                 fingerprint: false
             )

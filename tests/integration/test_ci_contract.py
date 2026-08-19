@@ -96,3 +96,15 @@ def test_public_ci_files_do_not_hardcode_current_sut():
     # 业务词命中时直接指出具体 token，便于后续接新 SUT 时快速定位架构回归。
     for token in _FORBIDDEN_SUT_TOKENS:
         assert token.lower() not in combined, f"public CI hardcodes SUT token: {token}"
+
+def test_jenkins_post_only_consumes_current_build_reports():
+    """JUnit/Artifact 必须只读取当前 BUILD_NUMBER 的报告，避免旧失败结果污染新构建。"""
+    text = JENKINSFILE_PATH.read_text(encoding="utf-8")
+
+    # run.py 在 Jenkins 中固定使用 jenkins-${BUILD_NUMBER} 作为本次运行目录；post 必须精确指向它。
+    assert 'reports/runs/jenkins-${env.BUILD_NUMBER}/junit.xml' in text
+    # 历史通配符会把同一持久 Workspace 里上一轮失败的 junit.xml 一起交给 Jenkins JUnit 插件。
+    assert "reports/runs/**/junit.xml" not in text
+    # Artifact 同样只归档当前 Build 的 reports，避免用户下载到其他构建的旧证据。
+    assert 'reports/runs/jenkins-${env.BUILD_NUMBER}/**' in text
+
