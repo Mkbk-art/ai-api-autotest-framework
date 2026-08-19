@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [tool.coverage.run]
-source = ["core", "utils", "db", "mock_server"]
+source = ["core", "utils", "db", "mock_server", "ai"]
 
 [tool.coverage.report]
 show_missing = true

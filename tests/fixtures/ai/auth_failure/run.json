@@ -1,0 +1,8 @@
+{
+  "run_id": "jenkins-history-auth",
+  "environment": "example-real-sut",
+  "level": "smoke",
+  "pytest_exit_code": 1,
+  "pytest_args": ["-m", "smoke"],
+  "junit_xml": "junit.xml"
+}

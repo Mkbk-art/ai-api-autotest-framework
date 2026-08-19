@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<testsuites tests="6" failures="1" errors="5" skipped="0">
+  <testsuite name="pytest" tests="6" failures="1" errors="5" skipped="0">
+    <testcase classname="testcases.project.test_auth" name="test_login_success">
+      <failure message="Assertions failed: business code was non-success and token was missing">
+AssertionError: expected successful business response
+password=SECRET_SENTINEL_PASSWORD
+Authorization: Bearer SECRET_SENTINEL_TOKEN
+      </failure>
+    </testcase>
+    <testcase classname="testcases.project.test_group" name="test_group">
+      <error message="shared authenticated fixture failed">setup failed because authentication prerequisite failed</error>
+    </testcase>
+    <testcase classname="testcases.project.test_create" name="test_create">
+      <error message="shared authenticated fixture failed">setup failed because authentication prerequisite failed</error>
+    </testcase>
+    <testcase classname="testcases.project.test_page" name="test_page">
+      <error message="shared authenticated fixture failed">setup failed because authentication prerequisite failed</error>
+    </testcase>
+    <testcase classname="testcases.project.test_redirect" name="test_redirect">
+      <error message="shared authenticated fixture failed">setup failed because authentication prerequisite failed</error>
+    </testcase>
+    <testcase classname="testcases.project.test_statistics" name="test_statistics">
+      <error message="shared authenticated fixture failed">setup failed because authentication prerequisite failed</error>
+    </testcase>
+  </testsuite>
+</testsuites>

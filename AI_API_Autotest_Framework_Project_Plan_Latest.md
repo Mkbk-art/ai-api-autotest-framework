@@ -1,8 +1,8 @@
 # AI 辅助接口自动化测试框架项目计划书
 
-> **版本**：V3.2.6
-> **更新日期**：2026-08-18
-> **当前阶段**：项目定位严格保持“AI 辅助接口自动化测试框架”。Stage 4/4.5/5 已完成真实 SUT 验收；GitHub Actions 已真实绿色，Jenkins Build #10 已完成 `env=test + smoke` 的 2/2 Mock 主链、JUnit 与 Artifacts。V3.2.6 新增框架通用外部环境 YAML 覆盖能力；真实 SUT Jenkins smoke 待最终执行。
+> **版本**：V3.3.3
+> **更新日期**：2026-08-19
+> **当前阶段**：项目定位严格保持“AI 辅助接口自动化测试框架”。Stage 6 CI/CD 已正式关闭；**Stage 7.1 失败日志分析的离线实现已完成**：AI 专项 28/28、全量框架 139/139、原 `run.py` Mock Smoke 2/2、compileall、SUT 硬编码守门与 sentinel 泄漏扫描均通过。当前仅剩 Stage 7.1 **真实 Provider 调用验收**，完成后进入 Stage 7.2 YAML 草稿生成。
 > **文档用途**：记录项目背景、仓库核查结论、技术路线、阶段任务、验收标准、风险约束和后续交付物，作为后续开发、AI 协作、项目移交、简历整理和面试准备的统一依据。
 
 ---
@@ -1793,7 +1793,7 @@ docs/10_面试讲解稿.md
 | 阶段 4：短链接真实 Happy Path | **已完成** | 用户 Windows 六条真实 Smoke：`6 passed in 9.65s`，含 Redirect/Stats/Cleanup |
 | 阶段 4.5：异常/边界真实用例 | **已完成** | 用户 Windows Core 6/6 真实通过，Sentinel 前置限流有界重试已获得真实运行证据 |
 | 阶段 5：通用数据源断言 + 真实 SUT 验证 | **已完成** | 用户确认完整 Regression 6/6 真实通过；通用 MySQL/Redis YAML 断言与当前 SUT 深层校验均完成 |
-| 阶段 6：CI/CD | **GitHub Actions + Jenkins Mock 已真实通过，真实 SUT Jenkins 验收待完成** | GitHub Actions 公共框架 CI 已连续两次绿色；Jenkins Windows `test/smoke` 已真实 SUCCESS 并生成 JUnit/Artifact；下一步只做真实短链接 SUT 参数化 smoke 验收 |
+| 阶段 6：CI/CD | **已完成** | GitHub Actions 公共 CI 已真实绿色；Jenkins Windows Mock `test/smoke` Build #20 为 `2 passed, 4 deselected` 且 `SUCCESS`；真实短链接 SUT `shortlink-local/smoke` Build #22 为 `6 passed, 12 deselected` 且 `SUCCESS`；JUnit/Artifacts、外部私有 YAML、每 Build 报告隔离均获得真实平台证据 |
 | 阶段 7：AI 辅助 | 未开始 | 用例草稿生成 + 失败分析 |
 | 阶段 8：最终整理 | 未开始 | README、架构图、简历、面试材料 |
 
@@ -1804,7 +1804,7 @@ docs/10_面试讲解稿.md
 - Stage 2 已完成 Mock、VariableContext、断言增强、异常链路与框架测试保障；
 - Stage 3 已完成正式 `core/ + utils/ + testcases/` 架构迁移，并删除旧目录入口；
 - Stage 3 基线为框架自身 57 条、全量 63 条；当前 Stage 4 Redirect YAML 主链纠正后沙箱框架自身测试为 83 passed、默认离线全量为 89 passed；
-- Stage 5 已将 MySQL / Redis 直连能力收敛为通用 `db/` Client + `AssertionEngine` YAML 数据源断言，并由用户确认当前真实 SUT Regression 6/6 通过；Stage 6 GitHub Actions/Jenkins 配置已实现并通过离线契约；GitHub Actions 已获得连续绿色 Run + Artifact 真实平台证据，Jenkins Windows `ENV_NAME=test / LEVEL=smoke` 也已真实 SUCCESS 并成功记录 JUnit/归档 Artifact；当前只剩真实短链接 SUT 的 Jenkins 参数化 smoke 验收；AI 尚未实现；
+- Stage 5 已将 MySQL / Redis 直连能力收敛为通用 `db/` Client + `AssertionEngine` YAML 数据源断言，并由用户确认当前真实 SUT Regression 6/6 通过；Stage 6 已正式完成：GitHub Actions 公共框架 CI 真实绿色，Jenkins Build #20 的 Mock Smoke 为 `2 passed, 4 deselected` 且 `SUCCESS`，Jenkins Build #22 的真实短链接 Smoke 为 `6 passed, 12 deselected in 25.92s` 且 `SUCCESS`；Jenkins 已验证外部私有 YAML 注入、JUnit、Artifacts 和按 Build 隔离报告。AI 尚未实现，下一阶段为 Stage 7 AI 辅助；
 - Stage 4 已完成真实 SaaS 源码和运行链路分析，确认 Gateway 鉴权、gid 前置、HTTP Host/serverName 对 fullShortUrl 的影响、Redis Stream 最终一致性和 ShardingSphere 边界；
 - 已通过手工真实请求定位并验证 `enableStatus` 缺失导致统计 `data:null` 的真实缺陷，同时确认旧 Nginx 构建包与最新 Vue 源码不一致；
 - Stage 4 已把登录、分组、创建、分页、302 跳转、异步统计和回收站清理作为真实 SUT 接入框架并获得 `6 passed`；Stage 4.5 Core 已真实 6/6；Stage 5 Regression 已真实 6/6；Stage 6 当前只增加可复用 CI 调度和报告归档，不继续扩张当前 SUT 用例数量。
@@ -2004,28 +2004,67 @@ docs/10_面试讲解稿.md
 
 ## 10. 当前下一步行动清单
 
-Stage 6 已完成 GitHub Actions 与 Jenkins Mock 两条真实 CI 主链验证，当前只剩真实 SUT Jenkins 参数化验收：
+Stage 6 已由两条最新 Jenkins 平台证据正式关闭：
 
 ```text
-1. GitHub Actions 公共框架 CI：已完成，连续绿色并生成 Artifact
-2. Jenkins Pipeline from SCM：已完成
-3. Jenkins ENV_NAME=test / LEVEL=smoke：已真实 SUCCESS
-4. Jenkins Workspace .venv 隔离与 UTF-8 编码修复：已真实验证生效
-5. JUnit 记录与 reports/logs Artifact 归档：已真实验证
-6. 下一步准备不进入 GitHub 的私有短链接环境 YAML
-7. 使用 Build with Parameters 运行 ENV_NAME=<私有环境名> / LEVEL=smoke
-8. 确认 Jenkins 可访问本机真实 Gateway/Project，并保留 JUnit/Artifact 证据
-9. 真实 SUT Jenkins smoke 通过后关闭 Stage 6，进入 Stage 7 AI
+1. GitHub Actions 公共框架 CI：已完成，真实绿色并生成 Artifact
+2. Jenkins Mock：Build #20，ENV_NAME=test / LEVEL=smoke
+   -> 2 passed, 4 deselected
+   -> JUnit 记录成功
+   -> Artifact 归档成功
+   -> Finished: SUCCESS
+3. Jenkins 真实 SUT：Build #22，ENV_NAME=shortlink-local / LEVEL=smoke
+   -> 6 passed, 12 deselected in 25.92s
+   -> Login / Group / Create / Page / Redirect / Statistics / Cleanup 真实链路通过
+   -> token 在日志中脱敏显示
+   -> JUnit 记录成功
+   -> Artifact 归档成功
+   -> Finished: SUCCESS
+4. Jenkins 每 Build 报告隔离修复：已通过后续真实构建验证，不再受旧 junit.xml 污染
+5. 外部私有环境 YAML：已在真实 SUT Jenkins Build 中验证可用，真实凭据不进入公共 GitHub
+6. Stage 6：正式关闭
+7. 下一阶段：Stage 7 AI 辅助
 ```
 
-Stage 6 坚持：
+### Stage 7 当前边界（进入设计阶段，尚未实现）
 
-- GitHub Actions 公共 workflow 不直接访问开发者本机 SUT；
-- Jenkinsfile 不写死当前项目环境名，真实环境通过 `ENV_NAME` 参数选择；
-- CI 只调度统一 `run.py`，不复制 suite/marker/报告目录选择逻辑；
-- 测试失败后仍保留 JUnit、Allure Results、run.json 与日志；
-- 不把 workflow/Jenkinsfile 的离线契约测试写成“GitHub/Jenkins 平台已经真实运行通过”；
-- 新项目接入原则上只新增环境 YAML 与 `testcases/<suite>/`，公共 CI 不因业务项目变化而修改。
+当前唯一主线仍是：
+
+```text
+Stage 7 AI 辅助
+├─ 7.1 失败日志分析
+└─ 7.2 接口说明 -> YAML 用例草稿生成
+
+Stage 8 最终整理
+├─ README / 架构图
+├─ 简历项目描述
+├─ 面试讲解
+└─ 最终证据整理
+```
+
+> **编号纠正说明**：本文较早版本后部曾出现“阶段 8：AI 辅助能力 / 阶段 9：工程质量”的历史详细能力池。
+> 从 V2.10 起已经明确当前唯一执行路线为 `Stage 6 CI/CD -> Stage 7 AI -> Stage 8 最终整理`。
+> 因此后文旧“阶段 8：AI 辅助能力”的能力内容可以复用，但其**编号不再作为当前执行编号**。
+
+### Stage 7 设计原则
+
+- AI 只能增强框架，不能成为主测试链路的强依赖；
+- AI 不可用时，现有 Pytest / YAML / DB / Redis / CI/CD 必须继续正常运行；
+- AI 不生成“自动通过”的断言，不替代 `AssertionEngine`；
+- AI 输出必须经过结构化校验，非法 YAML/DSL 不进入正式用例目录；
+- AI 失败分析必须区分“事实证据”和“模型推测”；
+- Token、Cookie、密码、数据库凭据、手机号、邮箱等在发送给模型前必须脱敏；
+- AI API Key 不写入 Git，不写进环境 YAML 示例，不进入报告；
+- `core/` 继续不知道当前真实 SUT；AI 模块同样不得写死 shortlink；
+- Shortlink 只作为真实失败日志和真实接口说明的**示例输入/演示对象**；
+- Stage 7 不扩张短链接业务用例数量，重点是新增通用 AI 辅助能力。
+
+### 推荐实施顺序
+
+1. **先做 7.1 失败日志分析**：已有 Jenkins #18 认证失败、#19 旧 JUnit 污染等真实故障证据，可用于验证“事实/推测分离、脱敏、降级”。
+2. 再做 **7.2 YAML 用例草稿生成**：输入结构化接口说明，生成符合当前 YAML DSL 的候选草稿，并经过 Schema/语义校验。
+3. 最后把两项能力接到独立 CLI/工具入口，不改 `run.py` 的默认主测试结果语义。
+4. Stage 7 完成后进入 Stage 8 README、架构图、简历和面试收尾。
 
 ---
 
@@ -2485,4 +2524,294 @@ Build #19 并不是对真实短链接环境的重试。日志中的实际命令�
 - `ENV_FILE=<Jenkins Agent 仓库外私有覆盖 YAML>`
 
 在 V3.2.9 Jenkins 报告隔离修复推送并经过 Mock 构建验证后，再继续真实 SUT Smoke，避免旧失败报告干扰当前 Jenkins 状态判断。
+
+---
+
+## V3.3.0 状态更新（2026-08-19）
+
+### Stage 6 CI/CD：正式关闭
+
+本版本根据两次最新 Jenkins 真实执行结果关闭 Stage 6：
+
+1. **Jenkins Mock Build #20**：
+   - `ENV_NAME=test`
+   - `LEVEL=smoke`
+   - `2 passed, 4 deselected in 0.85s`
+   - JUnit 记录成功
+   - Artifacts 归档成功
+   - `Finished: SUCCESS`
+
+2. **Jenkins 真实短链接 SUT Build #22**：
+   - `ENV_NAME=shortlink-local`
+   - `LEVEL=smoke`
+   - 收集 18 条，选中 6 条 Smoke
+   - Login / Group / Create / Page / Redirect / Statistics 全部真实通过
+   - Redirect 第一跳真实返回 HTTP 302
+   - Statistics 通过有界轮询达到预期
+   - Cleanup 真实执行回收站 Save / Remove
+   - `6 passed, 12 deselected in 25.92s`
+   - JUnit 记录成功
+   - Artifacts 归档成功
+   - `Finished: SUCCESS`
+
+3. V3.2.9 的“按 Jenkins BUILD_NUMBER 隔离 JUnit/Artifacts”修复已被 Build #20 与 Build #22 的连续成功结果验证；
+4. 外部私有环境 YAML 已在真实 SUT Jenkins 链路中成功使用，同时公共 GitHub 继续只保留占位配置；
+5. Stage 6 到此不再继续扩张，正式进入 **Stage 7：AI 辅助能力**。
+
+### Stage 7 当前推荐设计方向
+
+Stage 7 不是“给短链接项目加 AI”，而是给**通用接口自动化框架**增加两个可选能力：
+
+- **失败日志分析**：读取脱敏后的结构化失败证据，输出事实摘要、可能原因、证据/推测区分和排查优先级；
+- **YAML 用例草稿生成**：从结构化接口说明生成符合框架 DSL 的候选 YAML，经 Schema/语义校验和人工审核后才能保存。
+
+推荐先实现失败日志分析，再实现 YAML 草稿生成。原因是当前项目已经积累了真实 CI 失败证据，能够先把 AI 的“可验证性、脱敏、降级、不影响主链”做扎实，再进入生成能力。
+
+### 当前唯一编号
+
+```text
+Stage 6 CI/CD        -> 已完成
+Stage 7 AI 辅助      -> 进入设计
+Stage 8 最终整理     -> 未开始
+```
+
+后文旧版“阶段 8：AI 辅助能力 / 阶段 9：工程质量”继续只作为历史能力池参考，不改变当前编号。
+
+---
+
+## V3.3.1 状态更新（2026-08-19）
+
+### Stage 7：进入 7.1 失败日志分析设计确认阶段
+
+用户已确认 Stage 7 的实施顺序：
+
+```text
+7.1 失败日志分析
+→
+7.2 YAML 草稿生成
+```
+
+本轮已完成 `Stage7_1_AI_Failure_Analysis_Design_V1.md` 设计稿，当前尚未进入生产代码实现。  
+这是架构级新子系统，因此继续遵循“设计确认 -> TDD 实施计划 -> 实现 -> 全量验证”的流程，避免在已稳定的 Stage 6 主测试链上直接试错。
+
+### 7.1 已锁定的核心原则
+
+- 项目主体继续是“AI 辅助接口自动化测试框架”；
+- Shortlink 只作为真实历史失败样例和真实 SUT，不进入 `ai/` production code；
+- 第一版采用“基于已有 run artifacts 的离线结构化分析”，不把 AI 深度嵌入 Pytest hooks；
+- 不修改 `run.py` 默认测试执行语义；
+- 确定性代码生成 facts，AI 只生成 hypotheses / next_checks / uncertainties；
+- AI 输出必须引用真实 Fact ID；
+- 发送模型前完成结构化和文本双层脱敏；
+- AI 无 Key、Timeout、HTTP 错误、非法 JSON 时均可安全降级；
+- AI 不可用不得改变 Pytest/Jenkins 原始测试结论；
+- 公共 CI 不依赖真实 AI Key；
+- 7.1 稳定后再单独设计/实现 7.2。
+
+### 7.1 推荐文件边界
+
+```text
+ai/
+├─ __init__.py
+├─ contracts.py
+├─ failure_analyzer.py
+├─ client.py
+└─ cli.py
+
+utils/sanitizer.py              # 在现有脱敏基础上增加文本脱敏
+tests/ai/                       # 7.1 单元/契约测试
+tests/fixtures/ai/              # 真实历史故障的脱敏 fixture
+```
+
+### 当前状态
+
+```text
+Stage 6 CI/CD          -> 已完成
+Stage 7.1 设计稿       -> 已完成，等待确认
+Stage 7.1 实施计划     -> 待设计稿确认后生成
+Stage 7.1 代码实现     -> 未开始
+Stage 7.2 YAML 草稿    -> 未开始
+Stage 8 最终整理       -> 未开始
+```
+
+---
+
+## V3.3.2 状态更新（2026-08-19）
+
+### Stage 7.1 设计已确认，TDD 实施计划已完成
+
+用户已明确确认：
+
+```text
+7.1 失败日志分析设计确认
+```
+
+因此本轮不再修改 7.1 架构边界，而是完成了可直接执行的 TDD Implementation Plan：
+
+```text
+docs/superpowers/plans/2026-08-19-stage7-1-ai-failure-analysis.md
+```
+
+计划将 7.1 拆成 7 个独立可验收任务：
+
+1. AI Contracts 与严格模型输出校验；
+2. 复用现有 `utils/sanitizer.py` 增加文本脱敏；
+3. 从 `run.json + junit.xml` 构建确定性 FailureEvidence；
+4. Provider 无关 `AIClient` + OpenAI-compatible HTTP Adapter；
+5. AI 分析编排、Fact 引用验证、降级和 Artifact 输出；
+6. 独立 `python -m ai.cli analyze` 入口；
+7. 架构守门、README/文档、Coverage 与全量回归。
+
+### 关键实施约束继续保持
+
+- 不修改 `run.py` 默认测试结果语义；
+- 不把 AI 嵌入 Pytest hooks；
+- `ai/` production code 不得出现 Shortlink 业务硬编码；
+- AI 只解释失败，不决定 PASS/FAIL；
+- 所有模型输入先经过结构化 + 文本双层脱敏；
+- 模型输出必须引用真实 Fact ID；
+- 无 Key、Timeout、HTTP Error、非法 JSON、非法 Fact 引用均安全降级；
+- 公共 GitHub Actions 不依赖真实 AI Key；
+- 第一轮真实 Provider 调用成功之前，不在 README/简历中宣称“AI 在线分析已真实验证”；
+- Stage 7.2 仍不提前实现。
+
+### 当前状态
+
+```text
+Stage 6 CI/CD                     -> 已完成
+Stage 7.1 Design                  -> 已确认
+Stage 7.1 TDD Implementation Plan -> 已完成
+Stage 7.1 Code                    -> 待执行
+Stage 7.1 Real Provider           -> 待用户配置 Key 后验收
+Stage 7.2 YAML Draft              -> 未开始
+Stage 8 Final Packaging           -> 未开始
+```
+
+下一步按该计划进入 Inline TDD Execution。
+
+---
+
+## V3.3.3 状态更新（2026-08-19）
+
+### Stage 7.1 失败日志分析：离线实现完成，真实 Provider 验收待执行
+
+本版本严格沿用当前唯一执行路线：
+
+```text
+Stage 6 CI/CD        -> 已完成
+Stage 7.1 失败分析    -> 离线实现完成 / 真实 Provider 待验收
+Stage 7.2 YAML 草稿   -> 未开始
+Stage 8 最终整理      -> 未开始
+```
+
+本轮没有把 AI 写进 Shortlink 项目，也没有修改 `run.py` 默认测试判定语义。新增能力属于通用 `ai/` 子系统：
+
+```text
+已有 run Artifact
+→ FailureEvidenceBuilder
+→ 确定性 Facts
+→ 结构化 + 文本脱敏
+→ 可选 AIClient
+→ Fact 引用严格校验
+→ evidence.json / analysis.json / analysis.md
+```
+
+### 已实现能力
+
+1. 新增 `ai/contracts.py`：
+   - `FailureFact / FailureCase / FailureEvidence`；
+   - 模型输出只允许 `hypotheses / next_checks / uncertainties`；
+   - `confidence` 固定为 `low/medium/high`；
+   - hypothesis / next_check 必须引用真实 `F#`；
+   - 不存在的 Fact ID 直接判为非法模型输出。
+2. 在唯一 `utils/sanitizer.py` 中增加 `sanitize_text()`：
+   - Bearer Authorization；
+   - token/password/api_key 等 key=value 文本；
+   - Cookie / Set-Cookie；
+   - 邮箱与常见中国大陆手机号；
+   - 先脱敏后截断，保留 AssertionError、JSONPath、业务错误码等诊断信息。
+3. 新增 `FailureEvidenceBuilder`：
+   - 只读取 `run.json + junit.xml`；
+   - 区分 `failure` 与 `error`；
+   - 本地代码生成连续 Fact ID；
+   - 不让模型创造测试事实。
+4. 新增 Provider 无关 `AIClient Protocol` 与 `OpenAICompatibleClient`：
+   - 复用现有 Requests；
+   - 不引入厂商 SDK；
+   - Provider 配置只来自 `AI_API_BASE / AI_API_KEY / AI_MODEL / AI_TIMEOUT`；
+   - 公共 CI 不需要真实 AI Key。
+5. 新增安全降级状态：
+   - `success`；
+   - `unavailable`；
+   - `error`；
+   - `invalid_model_output`。
+6. 新增独立 CLI：
+
+```bash
+python -m ai.cli analyze --run-dir reports/runs/<run_id> --no-ai
+```
+
+第一版不修改：
+
+```bash
+python run.py ...
+```
+
+因此 AI 不可用不会影响原有 Pytest/Jenkins PASS/FAIL。
+7. 使用两类真实历史故障的泛化脱敏 fixture 做验证：
+   - 共享认证前置失败导致 1 个 direct failure + 多个 setup error；
+   - 当前 Pytest 通过但 Jenkins 因历史 JUnit glob 污染变为 UNSTABLE。
+8. 新增 Architecture Guard，保证 `ai/` production code 不出现当前 Shortlink SUT 的 URL、环境名、表名或 Redis Key 前缀。
+
+### 离线验收证据
+
+```text
+Stage 7.1 AI 专项 + Architecture Guard
+28 passed
+
+框架全量 tests/
+139 passed
+
+原 run.py Mock Smoke
+2 passed, 4 deselected
+
+compileall
+PASS
+
+AI production SUT hardcoding scan
+PASS
+
+fixture sentinel leakage scan
+PASS
+```
+
+Task 1 实施计划中的“6 passed”是计划书计数笔误：真实 Contracts 测试包含 3 个参数化 confidence case，因此实际为 **8 passed**。该笔误不改变设计或代码验收标准，后续一律以真实 Pytest 收集数量为准。
+
+### 当前不允许过度宣称的能力
+
+虽然 OpenAI-compatible Adapter 已使用 Fake HTTP Session 完成离线协议测试，但**尚未执行用户真实 Provider 调用**。因此当前 README、简历、面试材料只能表述：
+
+> 已实现 Provider 无关 AI 失败分析 Adapter、证据约束、双层脱敏和安全降级，并完成离线 Fake Client/Fake HTTP 验证。
+
+暂时不能表述：
+
+> 真实在线大模型失败分析已验证通过。
+
+### 下一步唯一任务
+
+先完成 Stage 7.1 的真实 Provider 验收，不提前开始 7.2：
+
+```text
+用户本机配置 AI Provider Secret
+→ 选择一份已经脱敏的失败 run Artifact
+→ python -m ai.cli analyze --run-dir <run_dir>
+→ 检查 ai_status=success
+→ 检查 hypothesis 全部引用真实 Fact ID
+→ 检查 evidence/analysis 无 secret
+→ 检查原 run.json / junit.xml 未被修改
+→ Stage 7.1 正式关闭
+→ Stage 7.2 YAML 草稿生成
+```
+
+真实 Provider Key 继续只留在用户本机环境/Secret Store，不提交 GitHub，不写进公共 YAML，不发给 AI 协作者。
 

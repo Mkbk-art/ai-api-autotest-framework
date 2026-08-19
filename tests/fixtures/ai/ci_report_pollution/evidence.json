@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "run_id": "jenkins-history-report",
+  "environment": "test",
+  "level": "smoke",
+  "pytest_exit_code": 0,
+  "summary": {"failed": 0, "errors": 0},
+  "facts": [
+    {
+      "id": "F1",
+      "category": "test_result",
+      "text": "Current Pytest run completed with 2 passed and 0 failed.",
+      "source": "current build"
+    },
+    {
+      "id": "F2",
+      "category": "ci_result",
+      "text": "The CI build finished UNSTABLE after JUnit publishing.",
+      "source": "historical Jenkins evidence"
+    },
+    {
+      "id": "F3",
+      "category": "ci_configuration",
+      "text": "JUnit publisher matched reports/runs/**/junit.xml in a persistent workspace.",
+      "source": "historical Jenkins configuration"
+    }
+  ],
+  "failure_cases": []
+}

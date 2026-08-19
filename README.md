@@ -485,14 +485,57 @@ ENV_FILE = 可选的 Jenkins Agent 仓库外覆盖 YAML 路径
 
 `ENV_FILE` 留空时保持现有 Mock/公共配置行为；有值时 Jenkins 仅把路径临时注入 `API_TEST_ENV_FILE`，不复制私有 YAML 到 Workspace，也不归档其内容。因此以后接入其他 SUT，不需要修改公共 CI 调度逻辑。详细说明见 `docs/10_CI-CD接入说明.md`。
 
-## 12. 证据边界
+## 12. Stage 7.1：可选 AI 失败分析
+
+Stage 7.1 不改变现有测试判定链，而是在一次运行结束后读取 `run.json + junit.xml`，先由确定性代码生成 Facts，再对安全 Evidence 做可选模型分析。
+
+完全离线、无需模型 Key：
+
+```bash
+python -m ai.cli analyze \
+  --run-dir reports/runs/<run_id> \
+  --no-ai
+```
+
+可选 OpenAI-compatible Provider 只从 OS 环境/Secret Store 读取：
+
+```text
+AI_API_BASE
+AI_API_KEY
+AI_MODEL
+AI_TIMEOUT
+```
+
+输出位于：
+
+```text
+reports/runs/<run_id>/ai-analysis/evidence.json
+reports/runs/<run_id>/ai-analysis/analysis.json
+reports/runs/<run_id>/ai-analysis/analysis.md
+```
+
+关键边界：
+
+- AI 不决定或覆盖 Pytest / AssertionEngine 的 PASS/FAIL；
+- AI 不可用、超时、HTTP 错误或非法 JSON 时只降级 `ai_status`；
+- 每条 hypothesis / next_check 必须引用真实 `F#`；
+- 模型输入先经过结构化 + 文本双层脱敏；
+- `ai/` production code 不知道当前 Shortlink SUT；
+- 公共 CI 不要求真实 AI Key。
+
+当前已完成 Provider Adapter 的 Fake HTTP 离线验证；**真实在线 Provider 调用将在用户本机配置 Key 后单独验收，在此之前不宣称真实在线模型调用已通过。**
+
+详细说明见 `docs/11_AI失败分析接入说明.md`。
+
+## 13. 证据边界
 
 - Stage 4 Smoke：用户 Windows 真实环境 `6/6`；
 - Stage 4.5 Core：用户 Windows 真实环境 `6/6`；
 - Stage 5 Regression：用户已确认 Redis 协议修复后的完整回归测试通过，因此通用 MySQL/Redis YAML 数据断言已完成真实 SUT 验收；
-- Stage 6：GitHub Actions 已真实绿色；Jenkins `ENV_NAME=test, LEVEL=smoke` 已真实完成 2/2 Mock smoke、JUnit 与 Artifact 归档；外部私有环境 YAML 机制已实现并通过离线契约验证，真实 SUT Jenkins smoke 待本机最终执行。
+- Stage 6：GitHub Actions 已真实绿色；Jenkins Mock `test/smoke` 已 2/2 SUCCESS；真实 Shortlink SUT `shortlink-local/smoke` 已 6/6 SUCCESS，并完成 JUnit、Artifacts、外部私有 YAML 与每 Build 报告隔离的真实平台验收。
+- Stage 7.1：确定性 Evidence、双层脱敏、严格 Fact 引用、OpenAI-compatible Adapter、Fake Client/Fake HTTP 与安全降级已进入离线实现验收；真实 Provider 调用待本机配置 Key 后单独验证。
 
-## 13. 后续路线
+## 14. 后续路线
 
 项目定位始终保持“AI 辅助接口自动化测试框架”，后续继续按照最初路线增强框架，而不是继续无限扩张短链接脚本：
 
@@ -500,18 +543,20 @@ ENV_FILE = 可选的 Jenkins Agent 仓库外覆盖 YAML 路径
 Stage 5 ✅
 通用 MySQL / Redis YAML 数据断言 + 真实 SUT 验证
         ↓
-当前 Stage 6
+Stage 6 ✅
 GitHub Actions / Jenkins / 报告归档
         ↓
-Stage 7
+当前 Stage 7.1
+AI：失败日志 → 结构化事实 + 原因与排查建议
+        ↓
+Stage 7.2
 AI：接口文档 → YAML 用例草稿
-AI：失败日志 → 原因与排查建议
         ↓
 Stage 8
-工程质量、README、架构图、简历与面试材料
+README、架构图、简历与面试材料
 ```
 
-## 14. 开源来源与个人工作边界
+## 15. 开源来源与个人工作边界
 
 上游来源和 MIT 许可：
 
