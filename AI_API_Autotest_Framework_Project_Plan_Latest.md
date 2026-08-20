@@ -2943,3 +2943,147 @@ Stage 8 Final                    ⏳ 未开始
 
 > 历史 V3.3.3 中“Provider 配置只来自 AI_* OS 环境变量”的描述已经被本 V3.3.6 规则取代；保留历史段落仅用于开发过程追踪，不再作为当前执行规范。
 
+---
+
+## V3.3.7 状态更新（2026-08-20）
+
+### Stage 7.1 V2 已通过公共 CI，进入真实 Provider 验收
+
+当前已确认：
+
+```text
+Stage 7.1 V2 YAML-first configuration refactor -> 已完成
+GitHub Actions                              -> 已绿色
+Repository Hygiene                         -> 已修正
+Real Provider Acceptance                   -> 当前进行中
+```
+
+本轮真实 Provider 验收不再修改 Framework Core，而是验证：
+
+```text
+config/ai.local.yaml
+        ↓
+AIConfigResolver
+        ↓
+AIProviderConfig
+        ↓
+AIClientFactory
+        ↓
+openai_chat_completions
+        ↓
+真实 Provider
+        ↓
+FailureAnalysisValidator
+```
+
+### 验收原则
+
+1. 不设置 `AI_*` 环境变量，证明 YAML 本身即可驱动真实 Provider；
+2. 当前公共 `config/ai.yaml` 保持无真实 Key；
+3. 真实 Key 只写本机 ignored `config/ai.local.yaml`；
+4. 首次验收使用已脱敏历史失败 fixture；
+5. `ai_status=success` 才表示真实 Provider 链路通过；
+6. hypothesis / next_check 的 `evidence_refs` 必须全部引用现有 Fact ID；
+7. `evidence.json / analysis.json / analysis.md` 不得出现真实 API Key；
+8. fixture 中的测试 Secret Sentinel 不得出现在 AI 输出；
+9. `run.json / junit.xml` 前后 SHA256 必须一致；
+10. Provider 验收失败时先判定配置、HTTP 协议、模型输出或 Validator 哪一层失败，不直接修改测试主链。
+
+### 验收完成后的状态目标
+
+```text
+Stage 7.1 Design / V2 Config       ✅
+Stage 7.1 Offline implementation  ✅
+Stage 7.1 GitHub Actions          ✅
+Stage 7.1 Real Provider           ✅ after current acceptance
+Stage 7.2 YAML Draft Generation   ⏳
+```
+
+---
+
+## V3.3.8：Stage 7.1 Prompt–Validator 契约修复
+
+真实 DeepSeek Provider 诊断结果：
+
+```text
+provider_config = PASS
+evidence_build = PASS
+provider_json = PASS
+top_level_type = dict
+top_level_keys = hypotheses,next_checks,uncertainties
+schema_validation = FAIL
+DETAIL = hypotheses[0].confidence is invalid
+```
+
+因此已排除：
+
+- YAML Resolver 错误；
+- Provider/Profile 路由错误；
+- HTTP 调用失败；
+- Provider 返回非 JSON；
+- 顶层字段名称错误。
+
+根因确定为：
+
+> 旧 `_SYSTEM_PROMPT` 只要求返回 `hypotheses / next_checks / uncertainties`，
+> 但没有完整声明 `validate_model_analysis()` 要求的内部字段、枚举和类型。
+> Provider 因此返回了 Validator 不接受的 confidence 值。
+
+### 修复原则
+
+```text
+不放宽 Validator
+不增加 DeepSeek 专用分支
+不做 confidence 自动映射
+不修改 AIConfigResolver
+不修改 AIClientFactory 的 Provider-neutral 设计
+```
+
+只修：
+
+```text
+ai/client.py
+→ 补齐统一 Stage 7.1 Model Output Contract
+
+tests/ai/test_ai_client.py
+→ 增加 Prompt / Validator 契约守门测试
+
+docs/11_AI失败分析接入说明.md
+→ 明确 Schema 和 invalid_model_output 行为
+```
+
+### TDD 证据
+
+RED：
+
+```text
+test_system_prompt_declares_full_validator_contract
+→ FAIL
+→ 缺少 "confidence" 契约
+```
+
+GREEN：
+
+```text
+同一测试
+→ PASS
+```
+
+### 下一验收
+
+用户覆盖本次三个文件并运行：
+
+```text
+python -m pytest tests/ai/test_ai_client.py -q
+python -m pytest tests -q
+python -m ai.cli analyze --run-dir tests/fixtures/ai/auth_failure
+```
+
+目标：
+
+```text
+ai_status=success
+```
+
+只有真实 Provider 返回通过 Validator 后，Stage 7.1 Real Provider 才正式封板。
+

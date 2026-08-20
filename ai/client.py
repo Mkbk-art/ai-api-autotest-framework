@@ -21,14 +21,55 @@ import requests
 from ai.config import AIProviderConfig
 
 
-# System Prompt 只定义“事实约束 + JSON 输出协议”，不包含任何真实 SUT 或模型厂商知识。
+# System Prompt 只定义“事实约束 + Stage 7.1 输出协议”，不包含任何真实 SUT 或模型厂商知识。
+#
+# 这里必须与 ai.contracts.validate_model_analysis() 保持同一契约：
+# - hypotheses 的 confidence 只能是 low / medium / high；
+# - next_checks.priority 必须是正整数；
+# - hypotheses / next_checks 必须引用真实 Fact ID；
+# - 字段名和枚举值禁止翻译。
+#
+# 之前真实 Provider 验收曾出现：
+#   Provider JSON 解析成功，但 confidence 返回了 Validator 不接受的值，
+# 最终被正确降级为 invalid_model_output。
+# 根因不是 Provider/YAML/HTTP，而是旧 Prompt 只说明了顶层 keys，没有完整说明内部 Schema。
+# 因此这里补齐契约，但仍保持 Validator 严格，不在 Python 中为某个厂商做特殊兼容。
 _SYSTEM_PROMPT = """You are an API test failure analysis assistant.
 Use only the supplied deterministic facts as evidence.
 Do not invent runtime state, database contents, service state, or code behavior.
-Return exactly one JSON object with keys:
-hypotheses, next_checks, uncertainties.
-Every hypothesis and next_check must cite existing fact IDs through evidence_refs.
-Do not include secrets or request credentials."""
+
+Return JSON only.
+Do not wrap the JSON in Markdown, code fences, or explanatory text.
+Return exactly one JSON object with this schema:
+
+{
+  "hypotheses": [
+    {
+      "title": "non-empty string",
+      "confidence": "low | medium | high",
+      "evidence_refs": ["F1"],
+      "reasoning_summary": "non-empty string"
+    }
+  ],
+  "next_checks": [
+    {
+      "priority": 1,
+      "action": "non-empty string",
+      "evidence_refs": ["F1"]
+    }
+  ],
+  "uncertainties": ["non-empty string"]
+}
+
+Rules:
+- "confidence" must be exactly one of: "low", "medium", "high".
+- "priority" must be a positive integer.
+- "evidence_refs" must be a non-empty list containing only existing Fact IDs supplied in the evidence.
+- "title", "reasoning_summary", and "action" must be non-empty strings when their parent item exists.
+- "hypotheses", "next_checks", and "uncertainties" must always be JSON arrays; use [] when empty.
+- Do not translate field names or enum values.
+- Do not add fields outside this contract.
+- Do not include secrets or request credentials."""
 
 
 class AIClient(Protocol):
