@@ -52,6 +52,7 @@ class CaseSpec:
     request: Mapping[str, Any]
     assertions: tuple[Mapping[str, Any], ...]
     operation_id: str | None = None
+    operations: tuple[str, ...] = ()
     tags: tuple[str, ...] = ()
     risks: tuple[str, ...] = ()
     requires: tuple[str, ...] = ()
@@ -63,6 +64,17 @@ class CaseSpec:
     hooks: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
     metadata: Mapping[str, Any] = field(default_factory=dict)
     source: Path | None = None
+
+    @property
+    def operation_ids(self) -> tuple[str, ...]:
+        """返回该测试资产绑定的全部 API Operation，并保持稳定顺序。"""
+        values: list[str] = []
+        if self.operation_id is not None:
+            values.append(self.operation_id)
+        for operation_id in self.operations:
+            if operation_id not in values:
+                values.append(operation_id)
+        return tuple(values)
 
     @property
     def marker_names(self) -> tuple[str, ...]:
@@ -112,6 +124,8 @@ class CaseSpec:
         }
         if self.operation_id is not None:
             test_case["operation_id"] = self.operation_id
+        if self.operations:
+            test_case["operations"] = list(self.operations)
         if self.extract:
             test_case["extract"] = dict(self.extract)
         if self.poll is not None:
@@ -167,6 +181,7 @@ def _parse_case(raw: Any, *, source: Path) -> CaseSpec:
     operation_id = raw.get("operation_id")
     if operation_id is not None:
         operation_id = _non_empty_text(operation_id, field_name="operation_id", source=source)
+    operations = _text_tuple(raw.get("operations"), field_name="operations", source=source)
 
     extract = raw.get("extract", {})
     if not isinstance(extract, dict):
@@ -195,6 +210,7 @@ def _parse_case(raw: Any, *, source: Path) -> CaseSpec:
         name=name,
         level=level,
         operation_id=operation_id,
+        operations=operations,
         tags=_text_tuple(raw.get("tags"), field_name="tags", source=source),
         risks=_text_tuple(raw.get("risks"), field_name="risks", source=source),
         requires=_text_tuple(raw.get("requires"), field_name="requires", source=source),

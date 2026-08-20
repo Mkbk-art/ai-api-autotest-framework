@@ -22,8 +22,8 @@ class CaseRegistry:
             if case.case_id in self._by_id:
                 raise CaseSpecError(f"duplicate case id: {case.case_id}")
             self._by_id[case.case_id] = case
-            if case.operation_id:
-                self._by_operation[case.operation_id].append(case)
+            for operation_id in case.operation_ids:
+                self._by_operation[operation_id].append(case)
 
     @classmethod
     def from_paths(cls, paths: Iterable[str | Path]) -> "CaseRegistry":

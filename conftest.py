@@ -131,8 +131,9 @@ def pytest_configure(config) -> None:
     """在严格 marker 校验前，从全部项目 YAML 动态注册 level/tags。"""
     # 先缓存环境配置，后续 ignore_collect 与 fixtures 使用同一命名环境来源。
     _hook_runtime_config(config)
-    # 扫描仓库中的 YAML，不要求业务标签预先出现在 pytest.ini。
-    yaml_files = sorted((PROJECT_ROOT / "testcases").glob("**/*.yaml"))
+    # 只扫描约定的 testcases/<suite>/yaml/*.yaml。项目还可以拥有 contract/、fixtures/ 等其他 YAML，
+    # 这些不是 Test Specification，不能因为扩展项目资产就被 Pytest marker 注册逻辑误解析。
+    yaml_files = sorted((PROJECT_ROOT / "testcases").glob("*/yaml/*.yaml"))
     marker_names: set[str] = set()
     for yaml_path in yaml_files:
         try:

@@ -585,40 +585,64 @@ python run.py --env shortlink-local --level smoke --collect-only
 
 真实 SUT 启动且本机私有环境配置完成后，再去掉 `--collect-only` 执行真实测试。
 
+### Contract / Coverage 分析
+
+Contract/Coverage 不发送业务 HTTP 请求，只读取环境配置、Contract 与 V2 Test Specification：
+
+```bash
+python -m coverage_engine.cli --env shortlink-local
+```
+
+有 OpenAPI 的项目配置 `provider: openapi`；没有 OpenAPI 的项目准备经过核查的 Static Manifest，并配置 `provider: static_manifest`。默认输出到：
+
+```text
+reports/coverage/<env>/contract.json
+reports/coverage/<env>/coverage-index.json
+reports/coverage/<env>/coverage-gap.json
+```
+
 ---
 
 ## 13. 当前验证状态
 
-### 当前离线代码证据
+### Framework / Runtime
 
 ```text
-Framework tests      180 passed
+Framework tests      211 passed
 Demo smoke           2 passed, 4 deselected
 Demo core            2 passed, 4 deselected
 Demo regression      2 passed, 4 deselected
-Shortlink collection 18 total
+Shortlink cases      18 total
 Shortlink smoke      6 / 18
 Shortlink core       6 / 18
 Shortlink regression 6 / 18
 ```
 
+Declarative Runtime 已在真实 Shortlink Smoke/Core/Regression、本地 Allure、GitHub Actions 和 Jenkins 中完成验证。
 
-### 真实环境证据边界
+### Stage 5 Contract / Coverage 离线证据
 
-旧执行模型下 Shortlink Smoke/Core/Regression 已有真实通过证据；本轮 Declarative Runtime 改变了 Case collection/context/workflow 执行模型，因此必须重新在用户本机真实 SUT 上执行三层验收后，才能把这一版升级为真实环境通过。
+```text
+Stage 5 focused tests    34 passed
+Shortlink mappings       43
+External operations      27
+Covered operations        8
+Operation coverage    29.63%
+Untested operations      19
+Unknown bindings          0
+Unbound cases             0
+```
+
+该 Coverage 是当前 18 条代表性测试资产的真实映射结果，不把百分比包装成“质量分数”。它用于让 API 覆盖缺口可计算，并为下一阶段 Contract Diff / Change-aware Regression 提供输入。
 
 ---
 
 ## 14. 下一阶段路线
 
 ```text
-Declarative Case Runtime
-      当前：离线完成，待真实 SUT 复验
+Declarative Case Runtime          ✅
 ↓
-Contract Provider
-      OpenAPI + Static Manifest
-↓
-Coverage Index / Coverage Gap
+Contract Provider + Coverage      当前：代码与离线验收完成，待本机复验/CI 后封板
 ↓
 Change-aware Smart Regression
 ↓

@@ -309,11 +309,10 @@ cases:
         - ${gid}
         - ${full_short_url}
         expected: 1
-  metadata:
-    operations:
-    - shortlinkCreate
-    - shortlinkRecycleSave
-    - shortlinkRecycleRemove
+  operations:
+  - shortlinkCreate
+  - shortlinkRecycleSave
+  - shortlinkRecycleRemove
 - id: shortlink.link.recycle.goto_cache_lifecycle
   name: Create 缓存应存在且进入回收站后 Redis 跳转缓存应删除
   level: regression
@@ -343,8 +342,7 @@ cases:
         source: default
         key: ${goto_redis_key}
         expected: false
-  metadata:
-    operations:
-    - shortlinkCreate
-    - shortlinkRecycleSave
-    - shortlinkRecycleRemove
+  operations:
+  - shortlinkCreate
+  - shortlinkRecycleSave
+  - shortlinkRecycleRemove

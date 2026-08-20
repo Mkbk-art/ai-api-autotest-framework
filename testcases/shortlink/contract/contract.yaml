@@ -1,0 +1,833 @@
+version: 1
+project: shortlink
+metadata:
+  source_kind: reviewed_backend_source
+  source_note: One-time API inventory extracted from the provided backend source. Framework Core does not parse Java/Spring.
+  default_coverage_scope:
+  - external_gateway
+  - external_direct
+operations:
+- id: shortlinkGroupCreate
+  service: admin
+  visibility: external_gateway
+  method: POST
+  path: /api/short-link/admin/v1/group
+  summary: 新增短链接分组
+  request_body:
+    required: true
+    content_type: application/json
+    model: ShortLinkGroupSaveReqDTO
+    fields:
+    - name: name
+      type: string
+      required: false
+  responses:
+  - status: '200'
+    model: Result<Void>
+  metadata:
+    source_controller: GroupController
+    request_model: ShortLinkGroupSaveReqDTO
+- id: shortlinkGroupList
+  service: admin
+  visibility: external_gateway
+  method: GET
+  path: /api/short-link/admin/v1/group
+  summary: 查询短链接分组集合
+  responses:
+  - status: '200'
+    model: Result<List<ShortLinkGroupRespDTO>>
+  metadata:
+    source_controller: GroupController
+- id: shortlinkGroupUpdate
+  service: admin
+  visibility: external_gateway
+  method: PUT
+  path: /api/short-link/admin/v1/group
+  summary: 修改短链接分组名称
+  request_body:
+    required: true
+    content_type: application/json
+    model: ShortLinkGroupUpdateReqDTO
+    fields:
+    - name: gid
+      type: string
+      required: false
+    - name: name
+      type: string
+      required: false
+  responses:
+  - status: '200'
+    model: Result<Void>
+  metadata:
+    source_controller: GroupController
+    request_model: ShortLinkGroupUpdateReqDTO
+- id: shortlinkGroupDelete
+  service: admin
+  visibility: external_gateway
+  method: DELETE
+  path: /api/short-link/admin/v1/group
+  summary: 删除短链接分组
+  responses:
+  - status: '200'
+    model: Result<Void>
+  metadata:
+    source_controller: GroupController
+    request_shape: 'query: gid'
+- id: shortlinkGroupSort
+  service: admin
+  visibility: external_gateway
+  method: POST
+  path: /api/short-link/admin/v1/group/sort
+  summary: 排序短链接分组
+  responses:
+  - status: '200'
+    model: Result<Void>
+  metadata:
+    source_controller: GroupController
+    request_shape: List<ShortLinkGroupSortReqDTO>
+- id: shortlinkRecycleSave
+  service: admin
+  visibility: external_gateway
+  method: POST
+  path: /api/short-link/admin/v1/recycle-bin/save
+  summary: 保存到回收站
+  request_body:
+    required: true
+    content_type: application/json
+    model: RecycleBinSaveReqDTO
+    fields:
+    - name: gid
+      type: string
+      required: false
+    - name: fullShortUrl
+      type: string
+      required: false
+  responses:
+  - status: '200'
+    model: Result<Void>
+  metadata:
+    source_controller: RecycleBinController
+    request_model: RecycleBinSaveReqDTO
+- id: shortlinkRecyclePage
+  service: admin
+  visibility: external_gateway
+  method: GET
+  path: /api/short-link/admin/v1/recycle-bin/page
+  summary: 分页查询回收站短链接
+  responses:
+  - status: '200'
+    model: Result<Page<ShortLinkPageRespDTO>>
+  metadata:
+    source_controller: RecycleBinController
+    request_model: ShortLinkRecycleBinPageReqDTO
+- id: shortlinkRecycleRecover
+  service: admin
+  visibility: external_gateway
+  method: POST
+  path: /api/short-link/admin/v1/recycle-bin/recover
+  summary: 恢复短链接
+  request_body:
+    required: true
+    content_type: application/json
+    model: RecycleBinRecoverReqDTO
+    fields:
+    - name: gid
+      type: string
+      required: false
+    - name: fullShortUrl
+      type: string
+      required: false
+  responses:
+  - status: '200'
+    model: Result<Void>
+  metadata:
+    source_controller: RecycleBinController
+    request_model: RecycleBinRecoverReqDTO
+- id: shortlinkRecycleRemove
+  service: admin
+  visibility: external_gateway
+  method: POST
+  path: /api/short-link/admin/v1/recycle-bin/remove
+  summary: 移除回收站短链接
+  request_body:
+    required: true
+    content_type: application/json
+    model: RecycleBinRemoveReqDTO
+    fields:
+    - name: gid
+      type: string
+      required: false
+    - name: fullShortUrl
+      type: string
+      required: false
+  responses:
+  - status: '200'
+    model: Result<Void>
+  metadata:
+    source_controller: RecycleBinController
+    request_model: RecycleBinRemoveReqDTO
+- id: shortlinkCreate
+  service: admin
+  visibility: external_gateway
+  method: POST
+  path: /api/short-link/admin/v1/create
+  summary: 创建短链接
+  request_body:
+    required: true
+    content_type: application/json
+    model: ShortLinkCreateReqDTO
+    fields:
+    - name: domain
+      type: string
+      required: false
+    - name: originUrl
+      type: string
+      required: false
+    - name: gid
+      type: string
+      required: false
+    - name: createdType
+      type: integer
+      required: false
+    - name: validDateType
+      type: integer
+      required: false
+    - name: validDate
+      type: datetime
+      required: false
+    - name: describe
+      type: string
+      required: false
+  responses:
+  - status: '200'
+    model: Result<ShortLinkCreateRespDTO>
+  metadata:
+    source_controller: ShortLinkController
+    request_model: ShortLinkCreateReqDTO
+- id: shortlinkBatchCreate
+  service: admin
+  visibility: external_gateway
+  method: POST
+  path: /api/short-link/admin/v1/create/batch
+  summary: 批量创建短链接
+  request_body:
+    required: true
+    content_type: application/json
+    model: ShortLinkBatchCreateReqDTO
+    fields:
+    - name: originUrls
+      type: list[string]
+      required: false
+    - name: describes
+      type: list[string]
+      required: false
+    - name: gid
+      type: string
+      required: false
+    - name: createdType
+      type: integer
+      required: false
+    - name: validDateType
+      type: integer
+      required: false
+    - name: validDate
+      type: datetime
+      required: false
+  responses:
+  - status: '200'
+  metadata:
+    source_controller: ShortLinkController
+    request_model: ShortLinkBatchCreateReqDTO
+- id: shortlinkUpdate
+  service: admin
+  visibility: external_gateway
+  method: POST
+  path: /api/short-link/admin/v1/update
+  summary: 修改短链接
+  request_body:
+    required: true
+    content_type: application/json
+    model: ShortLinkUpdateReqDTO
+    fields:
+    - name: originUrl
+      type: string
+      required: false
+    - name: fullShortUrl
+      type: string
+      required: false
+    - name: originGid
+      type: string
+      required: false
+    - name: gid
+      type: string
+      required: false
+    - name: validDateType
+      type: integer
+      required: false
+    - name: validDate
+      type: datetime
+      required: false
+    - name: describe
+      type: string
+      required: false
+  responses:
+  - status: '200'
+    model: Result<Void>
+  metadata:
+    source_controller: ShortLinkController
+    request_model: ShortLinkUpdateReqDTO
+- id: shortlinkPage
+  service: admin
+  visibility: external_gateway
+  method: GET
+  path: /api/short-link/admin/v1/page
+  summary: 分页查询短链接
+  responses:
+  - status: '200'
+    model: Result<Page<ShortLinkPageRespDTO>>
+  metadata:
+    source_controller: ShortLinkController
+    request_model: ShortLinkPageReqDTO
+- id: shortlinkStats
+  service: admin
+  visibility: external_gateway
+  method: GET
+  path: /api/short-link/admin/v1/stats
+  summary: 查询单短链指定时间监控数据
+  responses:
+  - status: '200'
+    model: Result<ShortLinkStatsRespDTO>
+  metadata:
+    source_controller: ShortLinkStatsController
+    request_model: ShortLinkStatsReqDTO
+- id: shortlinkStatsGroup
+  service: admin
+  visibility: external_gateway
+  method: GET
+  path: /api/short-link/admin/v1/stats/group
+  summary: 查询分组监控数据
+  responses:
+  - status: '200'
+    model: Result<ShortLinkStatsRespDTO>
+  metadata:
+    source_controller: ShortLinkStatsController
+    request_model: ShortLinkGroupStatsReqDTO
+- id: shortlinkStatsAccessRecord
+  service: admin
+  visibility: external_gateway
+  method: GET
+  path: /api/short-link/admin/v1/stats/access-record
+  summary: 分页查询单短链访问记录
+  responses:
+  - status: '200'
+    model: Result<Page<ShortLinkStatsAccessRecordRespDTO>>
+  metadata:
+    source_controller: ShortLinkStatsController
+    request_model: ShortLinkStatsAccessRecordReqDTO
+- id: shortlinkStatsGroupAccessRecord
+  service: admin
+  visibility: external_gateway
+  method: GET
+  path: /api/short-link/admin/v1/stats/access-record/group
+  summary: 分页查询分组访问记录
+  responses:
+  - status: '200'
+    model: Result<Page<ShortLinkStatsAccessRecordRespDTO>>
+  metadata:
+    source_controller: ShortLinkStatsController
+    request_model: ShortLinkGroupStatsAccessRecordReqDTO
+- id: shortlinkUrlTitle
+  service: admin
+  visibility: external_gateway
+  method: GET
+  path: /api/short-link/admin/v1/title
+  summary: 根据 URL 获取网站标题
+  responses:
+  - status: '200'
+    model: Result<String>
+  metadata:
+    source_controller: UrlTitleController
+    request_shape: 'query: url'
+- id: shortlinkUserGet
+  service: admin
+  visibility: external_gateway
+  method: GET
+  path: /api/short-link/admin/v1/user/{username}
+  summary: 查询用户信息
+  responses:
+  - status: '200'
+    model: Result<UserRespDTO>
+  metadata:
+    source_controller: UserController
+    request_shape: 'path: username'
+- id: shortlinkUserGetActual
+  service: admin
+  visibility: external_gateway
+  method: GET
+  path: /api/short-link/admin/v1/actual/user/{username}
+  summary: 查询无脱敏用户信息
+  responses:
+  - status: '200'
+    model: Result<UserActualRespDTO>
+  metadata:
+    source_controller: UserController
+    request_shape: 'path: username'
+- id: shortlinkUserHasUsername
+  service: admin
+  visibility: external_gateway
+  method: GET
+  path: /api/short-link/admin/v1/user/has-username
+  summary: 查询用户名是否存在
+  responses:
+  - status: '200'
+    model: Result<Boolean>
+  metadata:
+    source_controller: UserController
+    request_shape: 'query: username'
+- id: shortlinkUserRegister
+  service: admin
+  visibility: external_gateway
+  method: POST
+  path: /api/short-link/admin/v1/user
+  summary: 注册用户
+  request_body:
+    required: true
+    content_type: application/json
+    model: UserRegisterReqDTO
+    fields:
+    - name: username
+      type: string
+      required: false
+    - name: password
+      type: string
+      required: false
+    - name: realName
+      type: string
+      required: false
+    - name: phone
+      type: string
+      required: false
+    - name: mail
+      type: string
+      required: false
+  responses:
+  - status: '200'
+    model: Result<Void>
+  metadata:
+    source_controller: UserController
+    request_model: UserRegisterReqDTO
+- id: shortlinkUserUpdate
+  service: admin
+  visibility: external_gateway
+  method: PUT
+  path: /api/short-link/admin/v1/user
+  summary: 修改用户
+  request_body:
+    required: true
+    content_type: application/json
+    model: UserUpdateReqDTO
+    fields:
+    - name: username
+      type: string
+      required: false
+    - name: password
+      type: string
+      required: false
+    - name: realName
+      type: string
+      required: false
+    - name: phone
+      type: string
+      required: false
+    - name: mail
+      type: string
+      required: false
+  responses:
+  - status: '200'
+    model: Result<Void>
+  metadata:
+    source_controller: UserController
+    request_model: UserUpdateReqDTO
+- id: shortlinkUserLogin
+  service: admin
+  visibility: external_gateway
+  method: POST
+  path: /api/short-link/admin/v1/user/login
+  summary: 用户登录
+  request_body:
+    required: true
+    content_type: application/json
+    model: UserLoginReqDTO
+    fields:
+    - name: username
+      type: string
+      required: false
+    - name: password
+      type: string
+      required: false
+  responses:
+  - status: '200'
+    model: Result<UserLoginRespDTO>
+  metadata:
+    source_controller: UserController
+    request_model: UserLoginReqDTO
+- id: shortlinkUserCheckLogin
+  service: admin
+  visibility: external_gateway
+  method: GET
+  path: /api/short-link/admin/v1/user/check-login
+  summary: 检查用户登录状态
+  responses:
+  - status: '200'
+    model: Result<Boolean>
+  metadata:
+    source_controller: UserController
+    request_shape: 'query: username, token'
+- id: shortlinkUserLogout
+  service: admin
+  visibility: external_gateway
+  method: DELETE
+  path: /api/short-link/admin/v1/user/logout
+  summary: 用户退出登录
+  responses:
+  - status: '200'
+    model: Result<Void>
+  metadata:
+    source_controller: UserController
+    request_shape: 'query: username, token'
+- id: shortlinkRedirect
+  service: project
+  visibility: external_direct
+  method: GET
+  path: /{short-uri}
+  summary: 短链接跳转
+  responses:
+  - status: '302'
+    model: HTTP redirect
+  metadata:
+    source_controller: ShortLinkController
+    request_shape: 'path: short-uri'
+- id: projectShortlinkRecycleSave
+  service: project
+  visibility: internal_service
+  method: POST
+  path: /api/short-link/v1/recycle-bin/save
+  summary: Project 保存到回收站
+  request_body:
+    required: true
+    content_type: application/json
+    model: RecycleBinSaveReqDTO
+    fields:
+    - name: gid
+      type: string
+      required: false
+    - name: fullShortUrl
+      type: string
+      required: false
+  responses:
+  - status: '200'
+    model: Result<Void>
+  metadata:
+    source_controller: RecycleBinController
+    request_model: RecycleBinSaveReqDTO
+- id: projectShortlinkRecyclePage
+  service: project
+  visibility: internal_service
+  method: GET
+  path: /api/short-link/v1/recycle-bin/page
+  summary: Project 分页查询回收站
+  responses:
+  - status: '200'
+    model: Result<Page<ShortLinkPageRespDTO>>
+  metadata:
+    source_controller: RecycleBinController
+    request_model: ShortLinkRecycleBinPageReqDTO
+- id: projectShortlinkRecycleRecover
+  service: project
+  visibility: internal_service
+  method: POST
+  path: /api/short-link/v1/recycle-bin/recover
+  summary: Project 恢复短链接
+  request_body:
+    required: true
+    content_type: application/json
+    model: RecycleBinRecoverReqDTO
+    fields:
+    - name: gid
+      type: string
+      required: false
+    - name: fullShortUrl
+      type: string
+      required: false
+  responses:
+  - status: '200'
+    model: Result<Void>
+  metadata:
+    source_controller: RecycleBinController
+    request_model: RecycleBinRecoverReqDTO
+- id: projectShortlinkRecycleRemove
+  service: project
+  visibility: internal_service
+  method: POST
+  path: /api/short-link/v1/recycle-bin/remove
+  summary: Project 移除回收站短链接
+  request_body:
+    required: true
+    content_type: application/json
+    model: RecycleBinRemoveReqDTO
+    fields:
+    - name: gid
+      type: string
+      required: false
+    - name: fullShortUrl
+      type: string
+      required: false
+  responses:
+  - status: '200'
+    model: Result<Void>
+  metadata:
+    source_controller: RecycleBinController
+    request_model: RecycleBinRemoveReqDTO
+- id: projectShortlinkCreate
+  service: project
+  visibility: internal_service
+  method: POST
+  path: /api/short-link/v1/create
+  summary: Project 创建短链接
+  request_body:
+    required: true
+    content_type: application/json
+    model: ShortLinkCreateReqDTO
+    fields:
+    - name: domain
+      type: string
+      required: false
+    - name: originUrl
+      type: string
+      required: false
+    - name: gid
+      type: string
+      required: false
+    - name: createdType
+      type: integer
+      required: false
+    - name: validDateType
+      type: integer
+      required: false
+    - name: validDate
+      type: datetime
+      required: false
+    - name: describe
+      type: string
+      required: false
+  responses:
+  - status: '200'
+    model: Result<ShortLinkCreateRespDTO>
+  metadata:
+    source_controller: ShortLinkController
+    request_model: ShortLinkCreateReqDTO
+- id: projectShortlinkCreateByLock
+  service: project
+  visibility: internal_service
+  method: POST
+  path: /api/short-link/v1/create/by-lock
+  summary: Project 通过分布式锁创建短链接
+  request_body:
+    required: true
+    content_type: application/json
+    model: ShortLinkCreateReqDTO
+    fields:
+    - name: domain
+      type: string
+      required: false
+    - name: originUrl
+      type: string
+      required: false
+    - name: gid
+      type: string
+      required: false
+    - name: createdType
+      type: integer
+      required: false
+    - name: validDateType
+      type: integer
+      required: false
+    - name: validDate
+      type: datetime
+      required: false
+    - name: describe
+      type: string
+      required: false
+  responses:
+  - status: '200'
+    model: Result<ShortLinkCreateRespDTO>
+  metadata:
+    source_controller: ShortLinkController
+    request_model: ShortLinkCreateReqDTO
+- id: projectShortlinkBatchCreate
+  service: project
+  visibility: internal_service
+  method: POST
+  path: /api/short-link/v1/create/batch
+  summary: Project 批量创建短链接
+  request_body:
+    required: true
+    content_type: application/json
+    model: ShortLinkBatchCreateReqDTO
+    fields:
+    - name: originUrls
+      type: list[string]
+      required: false
+    - name: describes
+      type: list[string]
+      required: false
+    - name: gid
+      type: string
+      required: false
+    - name: createdType
+      type: integer
+      required: false
+    - name: validDateType
+      type: integer
+      required: false
+    - name: validDate
+      type: datetime
+      required: false
+  responses:
+  - status: '200'
+  metadata:
+    source_controller: ShortLinkController
+    request_model: ShortLinkBatchCreateReqDTO
+- id: projectShortlinkUpdate
+  service: project
+  visibility: internal_service
+  method: POST
+  path: /api/short-link/v1/update
+  summary: Project 修改短链接
+  request_body:
+    required: true
+    content_type: application/json
+    model: ShortLinkUpdateReqDTO
+    fields:
+    - name: originUrl
+      type: string
+      required: false
+    - name: fullShortUrl
+      type: string
+      required: false
+    - name: originGid
+      type: string
+      required: false
+    - name: gid
+      type: string
+      required: false
+    - name: validDateType
+      type: integer
+      required: false
+    - name: validDate
+      type: datetime
+      required: false
+    - name: describe
+      type: string
+      required: false
+  responses:
+  - status: '200'
+    model: Result<Void>
+  metadata:
+    source_controller: ShortLinkController
+    request_model: ShortLinkUpdateReqDTO
+- id: projectShortlinkPage
+  service: project
+  visibility: internal_service
+  method: GET
+  path: /api/short-link/v1/page
+  summary: Project 分页查询短链接
+  responses:
+  - status: '200'
+    model: Result<Page<ShortLinkPageRespDTO>>
+  metadata:
+    source_controller: ShortLinkController
+    request_model: ShortLinkPageReqDTO
+- id: projectShortlinkCount
+  service: project
+  visibility: internal_service
+  method: GET
+  path: /api/short-link/v1/count
+  summary: Project 查询分组短链接数量
+  responses:
+  - status: '200'
+    model: Result<List<GroupShortLinkCountQueryRespDTO>>
+  metadata:
+    source_controller: ShortLinkController
+    request_shape: 'query: requestParam(List<String>)'
+- id: projectShortlinkStats
+  service: project
+  visibility: internal_service
+  method: GET
+  path: /api/short-link/v1/stats
+  summary: Project 单短链监控数据
+  responses:
+  - status: '200'
+    model: Result<ShortLinkStatsRespDTO>
+  metadata:
+    source_controller: ShortLinkStatsController
+    request_model: ShortLinkStatsReqDTO
+- id: projectShortlinkStatsGroup
+  service: project
+  visibility: internal_service
+  method: GET
+  path: /api/short-link/v1/stats/group
+  summary: Project 分组监控数据
+  responses:
+  - status: '200'
+    model: Result<ShortLinkStatsRespDTO>
+  metadata:
+    source_controller: ShortLinkStatsController
+    request_model: ShortLinkGroupStatsReqDTO
+- id: projectShortlinkStatsAccessRecord
+  service: project
+  visibility: internal_service
+  method: GET
+  path: /api/short-link/v1/stats/access-record
+  summary: Project 单短链访问记录
+  responses:
+  - status: '200'
+    model: Result<Page<ShortLinkStatsAccessRecordRespDTO>>
+  metadata:
+    source_controller: ShortLinkStatsController
+    request_model: ShortLinkStatsAccessRecordReqDTO
+- id: projectShortlinkStatsGroupAccessRecord
+  service: project
+  visibility: internal_service
+  method: GET
+  path: /api/short-link/v1/stats/access-record/group
+  summary: Project 分组访问记录
+  responses:
+  - status: '200'
+    model: Result<Page<ShortLinkStatsAccessRecordRespDTO>>
+  metadata:
+    source_controller: ShortLinkStatsController
+    request_model: ShortLinkGroupStatsAccessRecordReqDTO
+- id: projectShortlinkUrlTitle
+  service: project
+  visibility: internal_service
+  method: GET
+  path: /api/short-link/v1/title
+  summary: Project 根据 URL 获取网站标题
+  responses:
+  - status: '200'
+    model: Result<String>
+  metadata:
+    source_controller: UrlTitleController
+    request_shape: 'query: url'
+- id: shortlinkNotfoundPage
+  service: project
+  visibility: page_internal
+  method: REQUEST
+  path: /page/notfound
+  summary: 短链接不存在页面
+  responses:
+  - status: '200'
+    model: String / page
+  metadata:
+    source_controller: ShortLinkNotfoundController

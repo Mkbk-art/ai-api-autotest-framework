@@ -160,3 +160,75 @@ cases:
 
     with pytest.raises(CaseSpecError, match="control flow"):
         load_case_specs(path)
+
+
+def test_workflow_can_bind_multiple_operations_as_first_class_metadata(tmp_path):
+    path = _write(
+        tmp_path / "workflow.yaml",
+        """
+version: 2
+cases:
+  - id: resource.lifecycle
+    name: lifecycle
+    level: regression
+    execution: workflow
+    operations:
+      - createResource
+      - recycleResource
+      - removeResource
+    workflow:
+      handler: project.lifecycle
+    request: {method: POST, path: /api/resources/recycle}
+    assertions: []
+""",
+    )
+
+    registry = CaseRegistry.from_paths([path])
+    case = registry.get("resource.lifecycle")
+
+    assert case.operation_id is None
+    assert case.operation_ids == ("createResource", "recycleResource", "removeResource")
+    assert registry.cases_for_operation("createResource") == (case,)
+    assert registry.cases_for_operation("removeResource") == (case,)
+
+
+def test_operation_ids_merge_primary_and_additional_relations_without_duplicates(tmp_path):
+    path = _write(
+        tmp_path / "relations.yaml",
+        """
+version: 2
+cases:
+  - id: composite.case
+    name: composite
+    operation_id: primaryOperation
+    operations: [primaryOperation, secondaryOperation]
+    level: core
+    request: {method: GET, path: /api/composite}
+    assertions: [{status_code: 200}]
+""",
+    )
+
+    case = load_case_specs(path)[0]
+
+    assert case.operation_ids == ("primaryOperation", "secondaryOperation")
+    _, runner_case = case.to_runner_parts()
+    assert runner_case["operations"] == ["primaryOperation", "secondaryOperation"]
+
+
+def test_operations_relation_must_be_a_list_of_strings(tmp_path):
+    path = _write(
+        tmp_path / "invalid-operations.yaml",
+        """
+version: 2
+cases:
+  - id: bad.operations
+    name: bad
+    level: core
+    operations: createResource
+    request: {method: GET, path: /api/resource}
+    assertions: [{status_code: 200}]
+""",
+    )
+
+    with pytest.raises(CaseSpecError, match="operations must be a list of strings"):
+        load_case_specs(path)

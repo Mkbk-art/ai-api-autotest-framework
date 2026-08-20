@@ -1,853 +1,857 @@
 # AI 辅助接口自动化测试框架项目计划书
 
-> **项目定位**：契约驱动、变更感知、可复用的 AI 辅助接口自动化测试框架。
-> **求职方向**：测试开发 / 测试工程化。
-> **真实 SUT**：短链接 SaaS 为第一真实验证项目；框架不依赖短链接业务。
-> **文档用途**：统一记录项目目标、架构、阶段任务、验收标准、工程边界、AI 能力和最终交付要求。
+> **版本**：V4.1（Stage 5 代码与离线验收版）
+> **更新日期**：2026-08-20
+> **当前阶段**：Stage 5 — Contract & Coverage Intelligence（代码与离线验收完成，待用户本机复验后正式封板）
+> **项目定位**：Contract-driven, Change-aware, AI-assisted API Test Automation Framework
+> **维护规则**：每完成一个阶段或发生架构级决策，必须同步更新本计划书中“当前阶段”“该阶段问题与解决”“完成状态”和“总进度表”。不再在文档顶部持续堆叠长版本日志。
 
 ---
 
-# 1. 项目基本信息
+# 1. 项目定位
 
-## 1.1 项目名称
+## 1.1 项目目标
 
-中文：
+构建一个面向测试开发岗位、可以重复接入不同 API 项目的自动化测试框架。
 
-> **AI 辅助接口自动化测试框架**
-
-英文定位：
-
-> **Contract-driven, Change-aware, AI-assisted API Test Automation Framework**
-
-推荐仓库名：
+框架最终解决的不是“怎么发 HTTP 请求”这一个问题，而是形成完整闭环：
 
 ```text
-ai-api-autotest-framework
+API Contract
+↓
+Structured Test Assets
+↓
+Deterministic Test Runtime
+↓
+Coverage Intelligence
+↓
+Contract Change
+↓
+Change-aware Regression
+↓
+AI Risk-based Test Design
+↓
+Evidence-based Failure Triage
+↓
+Allure / CI Evidence
 ```
+
+## 1.2 核心边界
+
+```text
+Framework Core ≠ Shortlink
+Framework Core ≠ Java/Spring Parser
+Framework Core ≠ AI Agent that decides PASS/FAIL
+```
+
+Shortlink 只是第一真实 SUT，用于验证框架在真实复杂系统上的可用性。
+
+## 1.3 四问功能准入原则
+
+任何新增能力必须回答：
+
+1. 没有 AI，它是否仍有明确工程价值？
+2. Pytest/现有工具是否已经很好解决？如果是，为什么还要重做？
+3. 第二个完全不同的 SUT 能否不修改 Framework Core 直接复用？
+4. 面试时是否能用真实代码、测试或 CI 证据证明？
+
+答不上来，就不进入主框架。
 
 ---
 
-## 1.2 项目定位
-
-本项目面向测试开发岗位，目标是构建一个可以重复接入不同 API 项目的自动化测试框架。
-
-框架不是某个短链接项目的专用测试代码，也不是简单的：
+# 2. 当前总体架构
 
 ```text
-Pytest + Requests + Allure + LLM
+                 被测项目 A
+                     │
+       config/env.<project>.yaml
+                     │
+      testcases/<project>/yaml
+      context.py / workflows/
+      contract/
+                     │
+                     ▼
+        ┌────────────────────────┐
+        │  API Autotest Framework│
+        └────────────────────────┘
+            │        │        │
+            │        │        │
+     Test Runtime  Contract   AI
+            │        │        │
+      Pytest/YAML  Coverage  Design/Triage
+            │        │        │
+            └────────┼────────┘
+                     │
+               Allure + CI/CD
 ```
 
-最终框架需要解决以下问题：
+## 2.1 普通 Case
 
-1. 普通 API 自动化中大量重复的请求、变量、断言和报告代码；
-2. 多项目环境、鉴权、数据库、缓存等公共工程能力；
-3. 普通接口 Case 与复杂业务 Workflow 的职责分离；
-4. 测试用例结构化管理；
-5. API Contract 与测试覆盖之间的映射；
-6. API 变化后的影响回归范围判断；
-7. 覆盖缺口和风险场景发现；
-8. 大量失败用例的聚类和分诊；
-9. AI 结果的证据约束和安全使用。
+```text
+YAML Test Specification V2
+→ CaseRegistry
+→ Generic Pytest Runtime
+→ CaseExecutor
+→ ApiRunner
+→ AssertionEngine
+→ Allure
+```
+
+## 2.2 复杂 Workflow
+
+只有真正需要 branch / loop / multi-state / finally cleanup / compensation 的流程使用 Python。
+
+YAML 不演化为第二门编程语言。
 
 ---
 
-## 1.3 项目设计原则
+# 3. 阶段状态总览
 
-### 原则 1：Framework Core 与 SUT 分离
+| Stage | 名称 | 当前状态 |
+|---|---|---|
+| Stage 0 | 项目定位与工程基线 | ✅ 已完成 |
+| Stage 1 | 通用 API 执行引擎 | ✅ 已完成 |
+| Stage 2 | 数据源与深层一致性 | ✅ 已完成 |
+| Stage 3 | 真实 SUT 与 CI/CD 工程验证 | ✅ 已完成 |
+| Stage 4 | Declarative Case Runtime | ✅ 已完成 |
+| Stage 5 | Contract & Coverage Intelligence | 🟡 代码与离线验收完成 / 待用户本机复验 |
+| Stage 6 | Change-aware Smart Regression | ⏳ 未开始 |
+| Stage 7 | AI Risk-based Test Design | ⏳ 未开始 |
+| Stage 8 | Failure Triage & Allure Enrichment | 🟡 已有 Evidence/AI 基础，完整阶段未完成 |
+| Stage 9 | 第二 SUT 与最终复用性证明 | ⏳ 未开始 |
+
+> Stage 8 中已有历史实现的 FailureEvidence、Sanitizer、Provider Config、严格 Fact 引用和安全降级属于可复用基础；
+> 但 Fingerprint / Cluster / Allure Enrichment 尚未完成，因此不提前标记 Stage 8 完成。
+
+---
+
+# Stage 0：项目定位与工程基线
+
+## 0.1 阶段目的
+
+把教学型开源骨架转变为可以持续演进的个人测试开发项目，并明确原创边界、工程边界和验证规则。
+
+## 0.2 当前问题 / 为什么需要该阶段
+
+原始基线仓库具备 Pytest、Requests、YAML、Allure 等元素，但更多是教学/展示骨架：
+
+- 部分能力只是 Demo；
+- README 描述不能直接等同于真实能力；
+- 缺少稳定的框架自身测试；
+- 开源代码与个人贡献边界需要明确；
+- 如果不先建立能力声明规则，后续容易把“计划中”误写成“已实现”。
+
+## 0.3 设计思路
+
+- 固定开源基线和许可证来源；
+- 所有新能力以真实测试/报告/CI 证据为准；
+- 明确 Framework 与 SUT 分层；
+- 建立“计划中 / 已编码 / 已验证”三态；
+- 不把短链接业务放入 Core。
+
+## 0.4 使用方式
+
+无特殊最终用户使用方式。本阶段主要是工程治理。
+
+## 0.5 阶段亮点（与传统方式的差异）
+
+传统求职项目容易直接 Fork 后包装成自己的项目；本项目保留源码审查、问题发现、架构演进和验证证据，
+重点展示“为什么改”和“如何证明改对了”。
+
+## 0.6 阶段产出与验收
+
+- LICENSE / THIRD_PARTY_NOTICES；
+- 基线源码审查；
+- 项目边界；
+- Framework Tests 基线；
+- 能力状态规则。
+
+## 0.7 阶段产生的问题与解决方式
+
+**问题：** 原仓库的 Demo/说明容易被误当成熟能力。
+**解决：** 逐项验证，只有有代码+测试/运行证据的能力才进入 README/简历。
+
+**问题：** 开源基线与个人贡献可能混淆。
+**解决：** 保留 MIT 来源和第三方说明，面试中明确“继承骨架 + 自主重构”。
+
+## 0.8 阶段总结
+
+建立了后续所有阶段共同遵循的工程可信度和边界。
+
+## 0.9 当前进度
+
+**✅ 已完成。**
+
+---
+
+# Stage 1：通用 API 执行引擎
+
+## 1.1 阶段目的
+
+建立稳定、SUT 无关的 API Test Runtime，先把“测试如何可靠执行”解决。
+
+## 1.2 当前问题 / 为什么需要该阶段
+
+原基线存在会导致测试不执行或结果失真的问题：
+
+- YAML 路径处理不可靠；
+- JSON 参数可能重复透传；
+- Case Header 覆盖语义不完整；
+- marker 之间存在隐式依赖；
+- 配置优先级不稳定；
+- 0 Case 可能误判成功；
+- Allure/JUnit 输出边界不清晰；
+- 缺少异常路径回归测试。
+
+## 1.3 设计思路
+
+核心职责拆分：
 
 ```text
-Framework
-≠
-Shortlink Test Project
+ConfigManager
+→ RequestClient
+→ ApiRunner
+→ VariableContext
+→ Extractor
+→ AssertionEngine
+→ Reporting
 ```
 
-Shortlink 只是：
+使用 Mock Server 先证明框架自身行为，再接真实 SUT。
 
-```text
-projects/shortlink/
+## 1.4 使用方式
+
+统一入口：
+
+```bash
+python run.py --env <ENV_NAME> --level smoke
+python run.py --env <ENV_NAME> --level core
+python run.py --env <ENV_NAME> --level regression
 ```
 
-下的一个真实项目。
+## 1.5 阶段亮点（与传统方式的差异）
 
-### 原则 2：普通 Case 声明式执行
+不是在每个 `test_xxx.py` 中重复 `requests + assert`，而是把请求、上下文、断言、配置和报告变成稳定基础设施。
 
-对于可以表达为：
+## 1.6 阶段产出与验收
+
+- RequestClient / ApiRunner；
+- VariableContext；
+- Extractor；
+- AssertionEngine；
+- ConfigManager；
+- Mock Server；
+- 日志和脱敏；
+- JUnit / Allure Results；
+- timeout / connection error / non-JSON 等框架测试。
+
+## 1.7 阶段产生的问题与解决方式
+
+**问题：** 测试文件之间共享运行状态导致执行顺序依赖。
+**解决：** 内存 VariableContext + fixture/context，取消共享 `extract.yaml` 运行态。
+
+**问题：** Header/Token 可能进入日志。
+**解决：** Sanitizer 统一遮蔽敏感 Header。
+
+**问题：** 网络异常容易与业务断言混为一谈。
+**解决：** RequestClient 保留 Requests 原始异常语义，测试失败忠实暴露，不用“自动重试一切”掩盖真实问题。
+
+## 1.8 阶段总结
+
+形成了后续所有能力的稳定执行底座。
+
+## 1.9 当前进度
+
+**✅ 已完成。**
+
+---
+
+# Stage 2：数据源与深层一致性
+
+## 2.1 阶段目的
+
+让框架不仅验证 HTTP Response，还能验证 API 调用后的数据库、缓存和最终一致性状态。
+
+## 2.2 当前问题 / 为什么需要该阶段
+
+只看接口返回无法发现：
+
+- 返回成功但 DB 未落库；
+- Redis 缓存未写入/未删除；
+- 异步统计尚未最终持久化；
+- 分库分表后查询目标不明确。
+
+## 2.3 设计思路
+
+建立通用 named data source：
 
 ```text
-Request
+data_sources.mysql.<source>
+data_sources.redis.<source>
+```
+
+AssertionEngine 提供通用只读规则：
+
+```text
+db_exists / db_eq / db_gte
+redis_exists / redis_eq
+redis_hfield_exists / redis_ttl_between / redis_scard_gte
+```
+
+Polling 只在 Case 明确声明时生效。
+
+## 2.4 使用方式
+
+项目只在自己的环境 YAML 配置数据源；Case 在 assertions 中引用 `source`。
+
+Framework Core 不知道业务表名和 Redis Key。
+
+## 2.5 阶段亮点（与传统方式的差异）
+
+传统接口自动化常停在 HTTP 200/JSON；本框架把“响应—DB—Redis—最终一致性”放进同一 Test Specification，
+但数据库探针保持只读，不通过直接改业务表制造状态。
+
+## 2.6 阶段产出与验收
+
+- MySQLClient；
+- RedisClient；
+- 参数化 SQL；
+- Redis RESP 协议可配置；
+- polling；
+- 通用 Java hash/sharding utility；
+- Shortlink Regression 对真实 MySQL/Redis 完整验证。
+
+## 2.7 阶段产生的问题与解决方式
+
+**问题：** redis-py 新版本默认 RESP3，而真实 Redis/代理不支持 `HELLO 3`。
+**解决：** Redis protocol 变成通用配置，默认 RESP2，支持项目显式切换 RESP3。
+
+**问题：** Shortlink 使用 ShardingSphere 16 表。
+**解决：** 只保留无业务表名的 Java HashMod 通用算法；业务表前缀仍留在 Shortlink 项目层。
+
+**问题：** Redis Stream 是异步链路，不能固定 sleep 后断言。
+**解决：** YAML bounded polling + 最终状态断言。
+
+## 2.8 阶段总结
+
+框架具备了真实业务数据一致性验证能力，同时保持 DB/Redis Core 与具体 SUT 分离。
+
+## 2.9 当前进度
+
+**✅ 已完成，真实 Shortlink Regression 6/6 已验证。**
+
+---
+
+# Stage 3：真实 SUT 与 CI/CD 工程验证
+
+## 3.1 阶段目的
+
+证明框架不仅能在 Mock 中工作，还能在真实复杂后端、GitHub Actions 和 Jenkins 中稳定运行。
+
+## 3.2 当前问题 / 为什么需要该阶段
+
+纯 Mock 无法证明：
+
+- Gateway/鉴权真实可用；
+- 302 Redirect 真实行为；
+- MySQL/Redis/异步链真实接入；
+- CI 环境与开发机差异；
+- Windows Jenkins Service 编码和环境隔离；
+- 历史报告是否污染当前 Build。
+
+## 3.3 设计思路
+
+三类验证环境分离：
+
+```text
+Local Real SUT
+→ 验证真实业务与数据一致性
+
+GitHub Actions
+→ 公共、可重复、无私人本地服务依赖
+
+Jenkins
+→ 参数化 CI / 可接入企业或本地测试环境
+```
+
+统一使用 `run.py`，不为 CI 写另一套测试执行器。
+
+## 3.4 使用方式
+
+GitHub Actions：公共 Mock/Framework CI。
+
+Jenkins：
+```text
+ENV_NAME=<environment>
+LEVEL=smoke|core|regression
+```
+
+本地仍可直接运行，不要求使用 Git/Jenkins。
+
+## 3.5 阶段亮点（与传统方式的差异）
+
+同一套 Runner 同时服务本地、SCM CI 和 Jenkins；CI 只是调度者，不拥有第二套测试逻辑。
+
+## 3.6 阶段产出与验收
+
+- GitHub Actions 真实绿色；
+- Jenkins Smoke/Core/Regression 真实 SUCCESS；
+- JUnit/Artifacts；
+- Allure Results/HTML；
+- Windows Allure CLI 兼容；
+- Workspace 独立 `.venv`；
+- Build-specific report isolation。
+
+## 3.7 阶段产生的问题与解决方式
+
+**问题：** Jenkins Windows Service 默认编码导致 UTF-8 requirements 读取失败。
+**解决：** Pipeline 内启用 UTF-8 Mode，并使用 Workspace `.venv`。
+
+**问题：** Jenkins Workspace 历史 JUnit 污染新 Build。
+**解决：** `run_id=jenkins-${BUILD_NUMBER}`，post 只消费当前 Build 报告。
+
+**问题：** npm 安装的 Windows Allure 是 `allure.cmd`，Git Bash 能跑但 Python CreateProcess 找不到。
+**解决：** Runner 解析真实 CLI 路径；Windows `.cmd/.bat` 经 COMSPEC 执行。该修复与任何 SUT 无关。
+
+**问题：** Shortlink Create 偶发一次网络/服务超时。
+**解决：** 重跑后正常，判定为环境波动；不因此提高全局 timeout、不对 POST 自动重试、不污染 Core。
+
+## 3.8 阶段总结
+
+证明了框架的执行链不仅“代码看起来能用”，而是在真实业务、本地 Allure、GitHub Actions 和 Jenkins 中都跑通。
+
+## 3.9 当前进度
+
+**✅ 已完成。**
+
+---
+
+# Stage 4：Declarative Case Runtime
+
+## 4.1 阶段目的
+
+解决“YAML 已存在，但普通业务仍要写一层 Python wrapper”的重复维护问题。
+
+目标：
+
+> 普通 API Case 只写 YAML；Python 只留给真正复杂 Workflow。
+
+## 4.2 当前问题 / 为什么需要该阶段
+
+旧模式：
+
+```text
+YAML
 +
-Extract
-+
-Assertions
-+
-可选 DB/Redis
-+
-可选 Polling
+每个业务域一个 Python 参数化 wrapper
 ```
 
-的 Case，只编写 YAML Test Specification。
+会产生：
 
-### 原则 3：复杂流程使用 Python
+- YAML 和 Python 双维护；
+- 新项目仍要理解公共测试胶水；
+- 前置数据被误认为必须写复杂 Python；
+- 普通 Case 难以成为可分析测试资产。
 
-只有真正需要：
+## 4.3 设计思路
+
+建立：
 
 ```text
-branch
-loop
-multi-step state transition
-complex cleanup
-compensation
+CaseSpec V2
+→ CaseRegistry
+→ Generic Pytest Runtime
+→ CaseExecutor
 ```
 
-的流程使用 Python Workflow。
+Context Provider 解决可复用前置数据。
 
-### 原则 4：Python Workflow 复用 YAML Case
+Workflow 只保留真实控制流。
 
-Workflow 不重新写：
+## 4.4 使用方式
 
-```text
-requests.post
-response.json
-assert
-```
-
-而通过：
-
-```text
-case_executor.execute(case_id)
-```
-
-复用原子 Case。
-
-### 原则 5：AI 不参与 PASS / FAIL
-
-测试结果由：
-
-```text
-Pytest
-+
-AssertionEngine
-```
-
-决定。
-
-AI 失败不能改变 Pytest exit code。
-
-### 原则 6：确定性优先
-
-可以由代码稳定完成的：
-
-```text
-Contract Diff
-Coverage
-直接依赖
-Assertion
-Fingerprint
-Known Failure
-```
-
-不交给 LLM。
-
-AI 只处理：
-
-```text
-风险推理
-语义间接影响
-复杂失败假设
-```
-
----
-
-# 2. 项目最终关系
-
-```text
-                    被测项目 A
-                       │
-                projects/project-a
-                       │
-                       │
-被测项目 B ─── projects/project-b
-                       │
-                       ▼
-            AI API Autotest Framework
-                       │
-        ┌──────────────┼──────────────┐
-        │              │              │
-   Test Runtime     Contract       AI Layer
-        │              │              │
-   Pytest/YAML     Diff/Coverage   Design/Triage
-        │              │              │
-        └──────────────┼──────────────┘
-                       │
-                 CI + Allure
-```
-
----
-
-# 3. 最终项目目标
-
-## 3.1 一句话描述
-
-基于 Pytest + Requests 构建通用 API 自动化测试框架，通过声明式 YAML Test Specification、Python Workflow、统一上下文与断言引擎、MySQL/Redis 数据校验、CI/CD 和 Allure 实现可复用测试执行；进一步通过 API Contract、Coverage Graph 和变更分析进行影响回归选择，并利用大模型完成覆盖缺口驱动的风险测试设计和基于真实证据的失败分诊。
-
----
-
-## 3.2 最终交付能力
-
-### 测试执行能力
-
-- 多环境；
-- Requests 封装；
-- YAML Test Specification；
-- Python Workflow；
-- 动态变量；
-- JsonPath 提取；
-- Header / Query / Body；
-- 文件、表单、JSON；
-- request options；
-- Polling；
-- fixture / context provider；
-- setup / cleanup。
-
-### 断言能力
-
-- status code；
-- JsonPath eq / ne；
-- exists / not_exists；
-- contains；
-- in；
-- gt / gte / lt / lte；
-- Header；
-- response time；
-- JSON Schema；
-- MySQL；
-- Redis。
-
-### 测试资产能力
-
-- case_id；
-- operation_id；
-- level；
-- tags；
-- risks；
-- dependencies；
-- Coverage Index；
-- Coverage Gap；
-- Workflow relationship。
-
-### Contract 能力
-
-- OpenAPI 3.x；
-- Static Contract Manifest；
-- Operation Model；
-- Contract Snapshot；
-- Contract Diff；
-- Breaking / risky change。
-
-### Smart Regression
-
-- Changed Operation；
-- direct impacted Case；
-- dependency expansion；
-- smoke safety set；
-- full regression fallback；
-- AI semantic impact supplement；
-- machine-readable selection evidence。
-
-### AI Test Design
-
-- Contract Change；
-- Coverage Gap；
-- Risk Scenario；
-- TestIntent；
-- Strict Validator；
-- deterministic Case Compiler；
-- candidate review。
-
-### AI Failure Triage
-
-- JUnit；
-- Allure Evidence；
-- request / response；
-- assertion；
-- Fingerprint；
-- Cluster；
-- Known Classifier；
-- AI ambiguous triage；
-- Evidence refs；
-- Suggested checks。
-
-### 工程化能力
-
-- GitHub Actions；
-- Jenkins；
-- JUnit；
-- Allure；
-- Artifact；
-- local / SCM / CI 三种运行方式；
-- Secret 管理；
-- Repo Hygiene；
-- Framework Test Suite。
-
----
-
-# 4. 项目边界
-
-## 4.1 本项目负责
-
-```text
-API functional automation
-API data consistency
-API contract coverage
-change-aware regression
-AI-assisted test design
-failure triage
-CI report
-```
-
-## 4.2 本项目不做
-
-当前版本不包含：
-
-- Selenium；
-- UI POM；
-- Mobile 自动化；
-- 性能压测平台；
-- 完整 Web 测试平台；
-- 漏洞扫描平台；
-- RAG 知识库；
-- AI 自动修改生产代码；
-- AI 自动决定测试通过；
-- AI 自动提交正式测试 Case；
-- 任意语言源码静态分析平台。
-
----
-
-# 5. 目标目录结构
-
-```text
-ai-api-autotest-framework/
-├── README.md
-├── run.py
-├── pytest.ini
-├── pyproject.toml
-├── requirements.txt
-├── requirements-dev.txt
-│
-├── core/
-│   ├── api_runner.py
-│   ├── request_client.py
-│   ├── variable_context.py
-│   ├── assertion_engine.py
-│   ├── extractor.py
-│   ├── case_spec.py
-│   ├── case_registry.py
-│   └── case_executor.py
-│
-├── pytest_plugin/
-│   ├── plugin.py
-│   └── yaml_runtime.py
-│
-├── db/
-│   ├── mysql_client.py
-│   └── redis_client.py
-│
-├── contracts/
-│   ├── model.py
-│   ├── provider.py
-│   ├── openapi_provider.py
-│   ├── manifest_provider.py
-│   └── diff.py
-│
-├── coverage/
-│   ├── index.py
-│   ├── dependency_graph.py
-│   └── selector.py
-│
-├── ai/
-│   ├── config.py
-│   ├── client.py
-│   ├── contracts.py
-│   ├── test_designer.py
-│   ├── impact_analyzer.py
-│   ├── failure_triage.py
-│   └── prompts/
-│
-├── reporting/
-│   └── allure_enricher.py
-│
-├── projects/
-│   ├── demo/
-│   ├── shortlink/
-│   │   ├── project.yaml
-│   │   ├── contract/
-│   │   ├── cases/
-│   │   ├── context.py
-│   │   ├── hooks.py
-│   │   └── workflows/
-│   └── <another-project>/
-│
-├── config/
-│   ├── config.yaml
-│   ├── ai.yaml
-│   └── env.*.yaml
-│
-├── reports/
-├── docs/
-└── tests/
-```
-
----
-
-# 6. YAML Test Specification
-
-## 6.1 定位
-
-YAML 不是单纯 Test Data。
-
-项目中的 YAML 定位为：
-
-> **可执行、可分析的 Test Specification。**
-
-它同时描述：
-
-```text
-测试身份
-API Operation
-请求
-提取
-断言
-风险
-回归层级
-依赖
-```
-
----
-
-## 6.2 示例
+普通 Case：
 
 ```yaml
 version: 2
-
 cases:
-  - id: user.login.invalid_password
-    name: 错误密码登录应返回业务失败
-
-    operation_id: userLogin
-
-    level: core
-
-    tags:
-      - auth
-      - negative
-
-    risks:
-      - authentication
-      - invalid_credential
-
-    request:
-      method: POST
-      path: /api/user/login
-
-      headers:
-        Content-Type: application/json
-
-      json:
-        username: ${config(test_user)}
-        password: ${invalid_password()}
-
-    assertions:
-      - status_code: 200
-      - ne: [$.code, "0"]
-      - not_exists: $.data.token
+  - id: order.create.success
+    operation_id: createOrder
+    level: smoke
+    risks: [state_transition]
+    request: ...
+    assertions: ...
 ```
+
+无需新增 `test_order.py` wrapper。
+
+复杂 Workflow 才写 Python。
+
+## 4.5 阶段亮点（与传统方式的差异）
+
+传统“YAML 数据驱动”往往只是把参数搬到 YAML，Python wrapper 仍然大量存在。
+
+本框架把 YAML 提升为：
+
+> **Executable + Analyzable Test Specification**
+
+并明确 YAML/Python 边界。
+
+## 4.6 阶段产出与验收
+
+- `core/case_spec.py`
+- `core/case_registry.py`
+- `core/context_provider.py`
+- `core/case_executor.py`
+- `testcases/test_yaml_cases.py`
+- 16 个 Shortlink Declarative Cases
+- 2 个真实 Python Workflows
+- 全量 Framework Tests 182 passed
+- Shortlink Smoke/Core/Regression 全部 6/6
+- GitHub Actions green
+- Jenkins test Smoke/Core/Regression SUCCESS
+- Allure HTML 完整链路验证
+
+## 4.7 阶段产生的问题与解决方式
+
+**问题：** “有前置数据”不代表“复杂 Workflow”。
+**解决：** Context Provider 负责登录、临时资源等可复用前置；只有控制流才保留 Python。
+
+**问题：** YAML 容易继续加入 if/for/while 变成编程语言。
+**解决：** CaseSpec 明确拒绝控制流 key。
+
+**问题：** Case 失败时 teardown 可能不执行。
+**解决：** CaseExecutor 使用统一 Context/ExitStack 语义保证 teardown。
+
+## 4.8 阶段总结
+
+框架从“YAML + Pytest wrapper”升级为真正的 Declarative Runtime，为 Contract/Coverage 建立稳定测试资产主键。
+
+## 4.9 当前进度
+
+**✅ 已完成并完成真实平台验收。**
 
 ---
 
-## 6.3 Case ID
+# Stage 5：Contract & Coverage Intelligence
 
-要求：
+## 5.1 阶段目的
+
+让框架从：
+
+> “我能执行这些测试”
+
+升级为：
+
+> “我知道系统有哪些 API、每条测试在覆盖哪个 API、哪些 API 还没有测试。”
+
+这是 Stage 6 Change-aware Regression 的数据基础。
+
+## 5.2 当前问题 / 为什么需要该阶段
+
+当前 Case 已经有 `case_id / operation_id / risks`，但框架仍缺少“完整系统 API 清单”。
+
+因此当前不能可靠回答：
+
+- 项目一共有多少 API Operation？
+- YAML 中写的 `operation_id` 是否真的存在？
+- 哪些 Operation 没有任何 Case？
+- Workflow 跨了哪些 Operation？
+- API 变化后应该定位到哪些测试资产？
+
+Shortlink 还有一个现实问题：后端没有 OpenAPI，但有完整源码。
+
+## 5.3 设计思路
+
+### 5.3.1 统一 Contract Model
 
 ```text
-稳定
-唯一
-机器可读
-不随展示名称改变
+OpenAPIProvider ───────┐
+                       ▼
+                   ApiContract
+                       ▲
+StaticManifestProvider ┘
 ```
 
-例如：
+后续 Coverage/Diff/Regression 只依赖 `ApiContract`，不关心 Contract 来源。
+
+### 5.3.2 Contract 获取模式
+
+#### 模式 A：项目已有 OpenAPI 3.x
 
 ```text
-auth.login.success
-auth.login.invalid_password
-order.create.success
-order.create.missing_sku
+OpenAPI YAML / JSON
+→ OpenAPIProvider
+→ ApiContract
 ```
+
+客户配置示例：
+
+```yaml
+contract:
+  provider: openapi
+  source: path/to/openapi.yaml
+```
+
+优先使用 OpenAPI `operationId`。
+
+#### 模式 B：没有 OpenAPI，但有后端源码
+
+不在 Framework Core 做 Spring/FastAPI/NestJS/Gin 等源码解析器。
+
+一次性：
+
+```text
+Backend Source
+→ 人工 / AI 辅助提取接口清单
+→ Review
+→ Static Contract Manifest
+→ StaticManifestProvider
+→ ApiContract
+```
+
+客户配置：
+
+```yaml
+contract:
+  provider: static_manifest
+  source: testcases/<project>/contract/contract.yaml
+```
+
+Shortlink 属于此模式。
+
+#### 模式 C：没有源码，但有接口文档 / Postman / Apifox / Wiki
+
+将可核验接口说明整理为 Static Manifest，再使用同一 `StaticManifestProvider`。
+
+#### 模式 D：已有框架格式 Static Manifest
+
+直接加载，无需任何转换。
+
+### 5.3.3 为什么不做源码解析工具
+
+因为：
+
+```text
+Spring Parser
+≠
+API Test Framework Core
+```
+
+如果 Core 理解 `@RequestMapping`，第二个 FastAPI/Node/Go 项目就需要修改 Core。
+
+源码清单提取只是 **Contract Acquisition**，Contract Loader 才是 Framework 能力。
+
+### 5.3.4 Coverage Scope
+
+对于微服务系统，必须区分：
+
+- external API；
+- internal service API；
+- page/technical route。
+
+否则同一业务 API 在 Gateway/Admin/Project 多层重复出现，会夸大 Coverage Gap。
+
+### 5.3.5 Workflow 多 Operation
+
+普通 Case 通常对应一个 `operation_id`。
+
+复杂 Workflow 可以跨多个 Operation，因此 Stage 5 要把：
+
+```text
+Workflow -> Operations[]
+```
+
+提升为通用一等关系，不依赖 Shortlink `metadata.operations` 特例。
+
+### 5.3.6 包命名
+
+不使用根目录 `coverage/`，避免与 `pytest-cov` 依赖的 Python `coverage` 包冲突。
+
+建议：
+
+```text
+coverage_engine/
+```
+
+## 5.4 使用方式
+
+### OpenAPI 项目
+
+只配置 OpenAPI 文件：
+
+```yaml
+contract:
+  provider: openapi
+  source: contracts/openapi.yaml
+```
+
+### 无 OpenAPI 项目
+
+项目准备一份静态 Manifest：
+
+```yaml
+contract:
+  provider: static_manifest
+  source: testcases/my-project/contract/contract.yaml
+```
+
+测试 YAML 只需要使用稳定 Operation ID：
+
+```yaml
+operation_id: createOrder
+```
+
+Framework 后续自动建立：
+
+```text
+Operation
+↔ Case
+↔ Risk
+↔ Workflow
+```
+
+## 5.5 阶段亮点（与传统方式的差异）
+
+传统接口自动化通常关注：
+
+```text
+Case 数量
+Pass Rate
+```
+
+本阶段增加的是：
+
+```text
+Contract-defined API Inventory
+↔
+Structured Test Assets
+```
+
+所以能回答“系统有什么、测了什么、缺什么”，为后续变更感知回归提供确定性数据，而不是让 AI 猜。
+
+## 5.6 阶段产出与验收
+
+已新增：
+
+```text
+contracts/
+  model.py
+  provider.py
+  openapi_provider.py
+  manifest_provider.py
+
+coverage_engine/
+  analyzer.py
+  cli.py
+  index.py
+  gap.py
+```
+
+项目资产：
+
+```text
+testcases/<project>/contract/
+```
+
+机器输出：
+
+```text
+contract.json
+coverage-index.json
+coverage-gap.json
+```
+
+验收要求：
+
+1. Static Manifest -> ApiContract；
+2. OpenAPI YAML -> 同一 ApiContract；
+3. OpenAPI JSON -> 同一 ApiContract；
+4. operation_id 能绑定普通 Case；
+5. Workflow 多 Operation 能进入 Coverage；
+6. 未覆盖 Operation 可识别；
+7. 错误 operation_id 可识别；
+8. Framework Core 无 Shortlink 业务词；
+9. 不修改 RequestClient/AssertionEngine 业务语义；
+10. Shortlink Source 只作为 Static Manifest 的真实验证样例。
+
+## 5.7 阶段产生的问题与解决方式
+
+**问题 1：Shortlink 没有 OpenAPI。**
+**解决：** 已从用户提供的后端源码一次性提取完整 API 清单，生成 Static Contract Manifest 草稿；不建设源码解析器。
+
+**问题 2：微服务内部 API 与外部 API 重复。**
+**解决：** Contract 增加 `service + visibility`，默认 Coverage 分母只统计 external surface。
+
+**问题 3：普通 Case 单 `operation_id` 无法完整表达 Workflow。**
+**解决：** Stage 5 将 Workflow 多 Operation 关系正式类型化。
+
+**问题 4：`coverage/` 与 Python coverage 包同名。**
+**解决：** 使用 `coverage_engine/`。
+
+**问题 5：OpenAPI 文件可能没有 operationId。**
+**解决：** 有 `operationId` 时直接使用；缺失时使用确定性的 `method:path` ID（例如 `post:/api/items`），并在 Operation metadata 中记录 `id_source=method_path_fallback`。这样来源可追踪，且不会生成随机/不可复现 ID。
+
+**问题 6：项目新增 `contract/contract.yaml` 后，Pytest marker 注册曾把它误当 Test Specification。**
+**解决：** 根 `conftest.py` 的 marker 扫描从 `testcases/**/*.yaml` 收紧为约定目录 `testcases/<suite>/yaml/*.yaml`。这样项目可以安全拥有 `contract/`、fixtures 等其他 YAML 资产，而不会污染测试收集。
+
+## 5.8 阶段总结
+
+Stage 5 不负责“智能选择测试”，而是先建立可信的系统 API 清单与测试覆盖关系。
+
+它是：
+
+```text
+Stage 4 Structured Cases
+→ Stage 5 Contract/Coverage
+→ Stage 6 Change-aware Regression
+```
+
+中间不可缺少的数据层。
+
+## 5.9 当前进度
+
+```text
+设计原则：✅ 已确认
+Contract 获取模式：✅ 已确认
+Shortlink 后端接口清单：✅ 已提取（43 mappings / 27 external operations）
+Static Manifest：✅ 已落地
+ApiContract Model：✅ 已实现
+StaticManifestProvider：✅ 已实现
+OpenAPIProvider（YAML/JSON/local $ref）：✅ 已实现
+Workflow 多 Operation：✅ 已正式建模
+Coverage Index/Gap：✅ 已实现
+独立 Coverage CLI：✅ 已实现
+Stage 5 专项测试：✅ 34 passed
+框架全量：✅ 211 passed
+Mock smoke/core/regression：✅ 各 2 passed / 4 deselected
+Shortlink 离线 Coverage：✅ 8/27 = 29.63%，unknown bindings = 0
+用户本机复验：⏳ 待执行
+```
+
+**阶段状态：🟡 代码与离线验收完成，待用户本机复验后正式标记完成。**
 
 ---
 
-## 6.4 Operation ID
+# Stage 6：Change-aware Smart Regression
 
-Operation ID 用于：
+## 6.1 阶段目的
 
-```text
-Contract
-Coverage
-Diff
-Regression Selection
-AI Test Design
-```
+当 API Contract 发生变化时，不盲目全量回归，也不让 AI 猜测必跑用例，而是确定性计算受影响集合。
 
-当使用 OpenAPI 时优先采用 `operationId`。
+## 6.2 当前问题 / 为什么需要该阶段
 
-没有 OpenAPI 时使用 Static Contract Manifest 中的 ID。
-
----
-
-## 6.5 Level
-
-统一：
+传统做法：
 
 ```text
-smoke
-core
-regression
+代码变了
+→ 不确定影响
+→ 全量回归
 ```
 
-### smoke
+大型接口项目会浪费大量时间；但“只凭代码文件名”选择测试又有漏测风险。
 
-最低可用主链。
-
-### core
-
-核心业务和精选异常。
-
-### regression
-
-完整业务、边界、数据一致性等。
-
----
-
-## 6.6 Risk Metadata
-
-推荐基础风险词表：
-
-```text
-authentication
-authorization
-required_field
-invalid_input
-boundary
-state_transition
-persistence
-cache_consistency
-eventual_consistency
-idempotency
-rate_limit
-compatibility
-```
-
-允许项目扩展自己的风险标签。
-
----
-
-# 7. Python Workflow
-
-## 7.1 定位
-
-Python Workflow 只解决：
-
-```text
-复杂控制流
-```
-
-而不是普通 API 请求。
-
----
-
-## 7.2 示例
-
-```python
-def test_refund_flow(case_executor):
-    order = case_executor.execute("order.create.success")
-
-    try:
-        payment = case_executor.execute(
-            "payment.pay.success",
-            overrides={"order_id": order["order_id"]},
-        )
-
-        refund = case_executor.execute(
-            "refund.create.success",
-            overrides={"order_id": order["order_id"]},
-        )
-
-        wait_refund_completed(refund)
-
-    finally:
-        cleanup(order)
-```
-
-请求和普通断言仍来自 YAML Case。
-
----
-
-# 8. Project 接入模型
-
-## 8.1 最小接入
-
-一个简单新项目只需要：
-
-```text
-projects/<project>/
-├── project.yaml
-├── contract/
-└── cases/
-```
-
-如果业务有特殊上下文：
-
-```text
-context.py
-hooks.py
-```
-
-如果存在复杂流程：
-
-```text
-workflows/
-```
-
----
-
-## 8.2 Project Context Provider
-
-用于复用：
-
-```text
-登录用户
-管理员身份
-租户
-组织
-测试订单
-临时资源
-```
-
-一份 Provider 可以被几十条 YAML Case 使用。
-
----
-
-## 8.3 Framework Core 不允许出现的内容
-
-不得出现：
-
-```text
-shortlink
-gid
-shortUri
-nurl.ink
-B100000
-t_link
-PV/UV/UIP
-```
-
-以及任何其他具体 SUT 业务词。
-
----
-
-# 9. 第一真实 SUT：Shortlink
-
-## 9.1 角色
-
-Shortlink 只用于证明：
-
-```text
-框架可以测试真实复杂系统
-```
-
-不作为 Framework Core 的产品模型。
-
----
-
-## 9.2 当前代表性能力
-
-该 SUT 具备：
-
-- Spring Boot；
-- Spring Cloud Gateway；
-- Token；
-- MySQL；
-- Redis；
-- ShardingSphere；
-- Sentinel；
-- Redis Stream；
-- 302 Redirect；
-- Recycle；
-- Statistics。
-
-因此可以验证：
-
-```text
-普通 REST
-鉴权
-异常
-Redirect
-Cache
-DB
-异步
-State Transition
-Cleanup
-```
-
----
-
-## 9.3 短链接自动化范围
-
-第一版保持代表性覆盖，不追求穷举所有业务接口。
-
-### Authentication
-
-- success；
-- invalid password；
-- missing token；
-- Redis login state。
-
-### Group / Resource Preparation
-
-- group query；
-- gid extract。
-
-### Create
-
-- success；
-- invalid URL；
-- unauthorized；
-- DB persistence。
-
-### Page
-
-- created resource visible。
-
-### Redirect
-
-- success；
-- notfound；
-- recycled；
-- Redis UV/UIP。
-
-### Statistics
-
-- PV / UV / UIP；
-- async polling；
-- DB persistence。
-
-### Lifecycle
-
-- recycle；
-- remove；
-- cleanup。
-
----
-
-# 10. Contract Layer
-
-## 10.1 ContractProvider
-
-统一：
-
-```text
-ContractProvider
-↓
-ApiContract
-```
-
-第一版提供：
-
-```text
-OpenAPIProvider
-StaticManifestProvider
-```
-
----
-
-## 10.2 OpenAPI
-
-支持：
-
-```text
-OpenAPI 3.x YAML
-OpenAPI 3.x JSON
-```
-
-读取：
-
-```text
-operationId
-method
-path
-parameter
-request body
-schema
-response
-```
-
----
-
-## 10.3 Static Contract Manifest
-
-适用于没有 OpenAPI 的项目。
-
-格式由框架定义，但保持：
-
-```text
-语言无关
-框架无关
-SUT 无关
-```
-
----
-
-# 11. Coverage Intelligence
-
-## 11.1 Coverage Index
-
-生成：
-
-```text
-Operation -> Cases
-Case -> Risks
-Workflow -> Operations
-Operation -> Dependencies
-```
-
----
-
-## 11.2 Coverage Gap
-
-回答：
-
-- 哪些 Operation 没有 Case；
-- 哪些 Changed Operation 没有 Case；
-- 哪些 risk 没有覆盖；
-- 哪些字段变化没有对应异常/边界测试。
-
----
-
-# 12. Change-aware Smart Regression
-
-## 12.1 目标
-
-对每次 API Contract 变化，判断：
-
-```text
-Full Regression
-或
-Impacted Regression
-```
-
----
-
-## 12.2 基础流程
+## 6.3 设计思路
 
 ```text
 Old Contract
@@ -864,1145 +868,402 @@ Dependency Graph
 ↓
 Mandatory Cases
 ↓
-Risk Policy
+Safety Policy
 ↓
-Optional AI Semantic Impact
-↓
-Selected Tests
+Optional AI Semantic Supplement
 ```
 
----
+AI 只能 Add/Escalate，不能删除 Mandatory Set。
 
-## 12.3 Deterministic Mandatory Set
+## 6.4 使用方式
 
-必须包含：
+目标：
 
-- Changed Operation 直接绑定 Case；
-- 依赖 Changed Operation 的 Workflow；
-- Shared Context 受影响 Case；
-- 强制 Smoke Set；
-- 用户显式包含的测试。
-
----
-
-## 12.4 AI 的作用
-
-AI 只分析：
-
-```text
-间接语义影响
-风险升级
-难以由直接关系确定的跨接口影响
+```bash
+python run.py --env <ENV> --selection auto
 ```
 
-AI 只能：
+也允许显式 full regression。
 
-```text
-Add
-Escalate
-Recommend Full
-```
+## 6.5 阶段亮点（与传统方式的差异）
 
-不能删除 Mandatory Set。
+不是基于 Git 文件路径粗暴选测试，也不是把全部判断交给 LLM，而是：
 
----
+> Contract Diff + Coverage + Dependency First，AI Last。
 
-## 12.5 Full Regression Fallback
+## 6.6 阶段产出与验收
 
-以下情况全量回归：
+- Contract Snapshot；
+- Contract Diff；
+- Changed Operations；
+- Dependency Graph；
+- Selector；
+- fallback；
+- selection evidence。
 
-- Contract 缺失；
-- Diff 失败；
-- Coverage 不完整；
-- 公共 Auth 变化；
-- 全局 Schema 变化；
-- 依赖无法确认；
-- 高风险基础能力变化；
-- 用户强制 Full。
+## 6.7 阶段产生的问题与解决方式
 
----
+预期风险：
 
-# 13. AI Risk-based Test Design
+**Contract/Coverage 不完整导致漏测。**
+解决：无法确认影响边界时强制 Full Regression。
 
-## 13.1 目标
+**公共 Auth / Shared Schema 变化影响范围过大。**
+解决：高风险基础能力变化直接升级回归范围。
 
-AI 不负责简单：
+## 6.8 阶段总结
 
-```text
-接口说明 -> YAML
-```
+目标不是“少跑测试”，而是在有确定证据时安全减少无关回归。
 
-而负责：
+## 6.9 当前进度
 
-> **根据 Contract Change 和 Coverage Gap 推理还应该测试什么。**
-
----
-
-## 13.2 输入
-
-```text
-Contract Change
-Existing Coverage
-Coverage Gap
-Risk Metadata
-Project-safe context
-```
-
----
-
-## 13.3 输出
-
-严格 `TestIntent`：
-
-```text
-operation
-risk
-scenario
-priority
-expected behavior
-evidence refs
-```
-
----
-
-## 13.4 Candidate Compiler
-
-```text
-TestIntent
-↓
-Validator
-↓
-Case Compiler
-↓
-candidate YAML
-↓
-人工 Review
-```
-
-正式 Case 不由 AI 自动写入。
-
----
-
-# 14. Evidence-based Failure Triage
-
-## 14.1 Evidence
-
-数据来源：
-
-```text
-run.json
-JUnit
-Allure Result
-Request
-Response
-Assertion
-Exception
-Case Metadata
-Operation ID
-Dependency
-```
-
-发送模型前统一脱敏。
-
----
-
-## 14.2 单失败
-
-```text
-Failure
-↓
-Known Classifier
-↓
-明确？
-├─ YES -> deterministic result
-└─ NO -> AI Triage
-```
-
----
-
-## 14.3 多失败
-
-```text
-Failures
-↓
-Fingerprint
-↓
-Cluster
-↓
-Known Classification
-↓
-Ambiguous Cluster
-↓
-AI Triage
-```
-
-目标示例：
-
-```text
-18 failed
-↓
-3 clusters
-
-Authentication dependency: 12
-Redis connectivity: 4
-Business behavior: 2
-```
-
----
-
-# 15. Allure
-
-## 15.1 报告中心
-
-最终只保留一个主报告：
-
-> **Allure**
-
-不建设独立 AI Dashboard。
-
----
-
-## 15.2 Test Result 内容
-
-至少包含：
-
-```text
-Case Metadata
-Request
-Response
-Extract
-Assertions
-DB/Redis checks
-Failure
-Cluster
-AI Triage
-Suggested Checks
-```
-
----
-
-## 15.3 Raw / Enriched
-
-```text
-allure-results-raw
-↓
-Triage / Enricher
-↓
-allure-results-enriched
-↓
-allure report
-```
-
-Raw Artifact 不可修改。
-
----
-
-# 16. AI 配置
-
-## 16.1 配置优先级
-
-```text
-CLI
->
-config/ai.local.yaml
->
-config/ai.yaml / home ai.yaml
->
-ENV fallback
-```
-
----
-
-## 16.2 Provider / Protocol
-
-Provider 只是 Profile。
-
-Factory 只识别 Protocol。
-
-第一协议：
-
-```text
-openai_chat_completions
-```
-
-同协议 Provider 不改 Python。
-
----
-
-## 16.3 Secret
-
-- Public Repo 不保存真实 Key；
-- 最终本地用户可以合法在自己的 YAML 中配置；
-- Git 用户推荐 `ai.local.yaml`；
-- CLI 只支持隐藏输入；
-- 日志 / Artifact / repr 不显示 Key。
-
----
-
-# 17. CI/CD
-
-## 17.1 Local Mode
-
-```text
-Python
-YAML
-Pytest
-Allure
-```
-
-不要求 Git/Jenkins。
-
----
-
-## 17.2 Team SCM Mode
-
-可以使用：
-
-```text
-GitHub
-GitLab
-Gitee
-Internal Git
-Jenkins optional
-```
-
----
-
-## 17.3 Framework Development Mode
-
-当前框架工程验证可继续使用：
-
-```text
-GitHub Actions
-+
-Jenkins
-```
-
----
-
-## 17.4 Change-aware CI
-
-目标流水线：
-
-```text
-Checkout
-↓
-Resolve Project
-↓
-Contract Diff
-↓
-Select Regression
-↓
-Run Pytest
-↓
-PASS?
-├─ YES -> Allure
-└─ NO
-    ↓
-  Fingerprint / Cluster
-    ↓
-  AI if needed
-    ↓
-  Allure Enrich
-↓
-Archive
-↓
-Return original Pytest result
-```
-
----
-
-# 18. 阶段实施计划
-
-# Stage 0：项目定位与工程基线
-
-## 阶段目标
-
-建立：
-
-- 项目边界；
-- Framework / SUT 分离；
-- 统一测试入口；
-- 开源归属；
-- 安全约束；
-- 框架测试基线。
-
-## 产出
-
-- 基线源码审查；
-- README；
-- LICENSE / Notices；
-- Framework tests。
-
-## 当前状态
-
-```text
-✅ 已具备稳定基础
-```
-
----
-
-# Stage 1：通用 API 执行引擎
-
-## 阶段目标
-
-提供稳定可复用的 API Test Runtime。
-
-## 能力
-
-- RequestClient；
-- ApiRunner；
-- VariableContext；
-- Extractor；
-- AssertionEngine；
-- ConfigManager；
-- Mock Server；
-- logging；
-- Allure attachments。
-
-## 验收
-
-- HTTP 主方法；
-- 非 JSON；
-- timeout；
-- connection error；
-- 动态变量；
-- Header；
-- Allure 脱敏；
-- Mock smoke/core/regression。
-
-## 当前状态
-
-```text
-✅ 已具备稳定基础
-```
-
----
-
-# Stage 2：数据源与深层一致性
-
-## 阶段目标
-
-支持接口响应之外的真实数据一致性验证。
-
-## 能力
-
-- MySQL named source；
-- Redis named source；
-- read-only probe；
-- DB assertions；
-- Redis assertions；
-- polling；
-- Sharding utility。
-
-## 验收
-
-- DB/Redis 只读；
-- 参数绑定；
-- 延迟一致性；
-- 数据源懒连接。
-
-## 当前状态
-
-```text
-✅ 已具备稳定基础
-```
-
----
-
-# Stage 3：真实 SUT 与 CI 工程验证
-
-## 阶段目标
-
-使用真实复杂系统证明框架不仅能跑 Mock。
-
-## 第一 SUT
-
-```text
-Shortlink SaaS
-```
-
-## 工程化
-
-- real smoke；
-- core；
-- regression；
-- Jenkins；
-- GitHub Actions；
-- JUnit；
-- Artifact；
-- Allure；
-- external private config。
-
-## 当前状态
-
-```text
-✅ 已建立真实验证基础
-```
-
----
-
-# Stage 4：Declarative Case Runtime
-
-## 阶段目标
-
-实现真正的：
-
-> 普通 Case 只写 YAML。
-
-## 任务
-
-1. CaseSpec V2；
-2. JSON Schema / parser；
-3. CaseRegistry；
-4. Generic Pytest Runtime；
-5. YAML marker；
-6. case_id；
-7. risk metadata；
-8. Project Context Provider；
-9. Workflow CaseExecutor；
-10. Shortlink 迁移。
-
-## 验收
-
-```text
-普通 Case 无项目 Python wrapper
-复杂 Workflow 可执行
-pytest marker 正常
-Allure 正常
-fixture/context 正常
-真实 SUT 主链不回归
-```
-
-## 当前状态
-
-```text
-🟡 已完成代码与离线回归验证，等待真实 Shortlink SUT 的 Smoke/Core/Regression 复验
-```
-
----
-
-# Stage 5：Contract & Coverage Intelligence
-
-## 阶段目标
-
-让测试用例从“可以执行”升级为：
-
-> **可以被框架分析。**
-
-## 任务
-
-1. Contract Model；
-2. OpenAPI Provider；
-3. Static Manifest Provider；
-4. operation_id；
-5. Case -> Operation；
-6. Workflow -> Operation；
-7. risk coverage；
-8. Coverage Index；
-9. Coverage Gap。
-
-## 验收
-
-输出：
-
-```text
-contract.json
-coverage-index.json
-coverage-gap.json
-```
-
----
-
-# Stage 6：Change-aware Smart Regression
-
-## 阶段目标
-
-根据接口变化选择合适回归范围。
-
-## 任务
-
-1. Contract Snapshot；
-2. Contract Diff；
-3. Changed Operation；
-4. Dependency Graph；
-5. mandatory selection；
-6. safety fallback；
-7. AI indirect impact；
-8. selection CLI；
-9. CI integration。
-
-## CLI 目标
-
-```text
-python run.py \
-  --project <name> \
-  --selection auto
-```
-
-## 验收
-
-必须能解释：
-
-```text
-为什么选这些测试
-为什么没全量
-为什么必须全量
-哪些是直接影响
-哪些是依赖影响
-哪些是 AI 增补
-```
+**⏳ 未开始，依赖 Stage 5。**
 
 ---
 
 # Stage 7：AI Risk-based Test Design
 
-## 阶段目标
+## 7.1 阶段目的
 
-利用 AI 帮助测试人员发现：
+让 AI 真正解决传统自动化较难解决的问题：
 
-> “还应该测试什么？”
+> 基于 Contract Change、Coverage Gap 和 Risk Metadata 推理“还应该测试什么”。
 
-## 任务
+## 7.2 当前问题 / 为什么需要该阶段
 
-- Changed Contract；
-- Coverage Gap；
+简单的“接口文档 -> YAML”更多是格式转换，工程价值有限。
+
+真正困难的是：
+
+- 哪些变化引入新风险？
+- 已有 Case 是否覆盖关键边界？
+- 哪些异常场景值得新增？
+
+## 7.3 设计思路
+
+```text
+Changed Operation
++ Contract Diff
++ Existing Coverage
++ Coverage Gap
++ Risk Metadata
+↓
+LLM
+↓
+Strict TestIntent
+↓
+Validator
+↓
+Deterministic Case Compiler
+↓
+Candidate YAML
+↓
+Human Review
+```
+
+## 7.4 使用方式
+
+AI 生成的永远是 Candidate，不自动进入正式 Regression。
+
+## 7.5 阶段亮点（与传统方式的差异）
+
+AI 不替代断言、不直接写正式测试、不凭空发明接口；它只在确定性数据之上补充风险推理。
+
+## 7.6 阶段产出与验收
+
 - TestIntent；
-- AI Prompt；
+- Prompt；
 - Validator；
-- candidate compiler；
-- review flow。
+- deterministic compiler；
+- candidate review flow。
 
-## 验收
+## 7.7 阶段产生的问题与解决方式
 
-AI 不得：
+**风险：** 模型幻觉字段/Operation。
+**解决：** 所有引用必须存在于 ApiContract。
 
-- 发明不存在字段；
-- 发明不存在 Operation；
-- 自动进入正式 Regression；
-- 修改 PASS/FAIL。
+**风险：** AI 候选质量不稳定。
+**解决：** Strict Validator + 人工 Review，不自动提交正式 Case。
+
+## 7.8 阶段总结
+
+把 AI 放在“风险设计”这个真正需要语义推理的位置，而不是包装传统参数化。
+
+## 7.9 当前进度
+
+**⏳ 未开始，依赖 Stage 5/6。**
 
 ---
 
 # Stage 8：Failure Triage & Allure Enrichment
 
-## 阶段目标
+## 8.1 阶段目的
 
-把大量失败转换为少量可排查问题。
+把“大量失败用例”转换为“少量可以排查的问题簇”，降低 CI 故障排查成本。
 
-## 任务
+## 8.2 当前问题 / 为什么需要该阶段
 
-1. Allure Evidence；
-2. Fingerprint；
-3. Cluster；
-4. Known Failure Classifier；
-5. Single-failure policy；
-6. AI ambiguous triage；
-7. Allure Enricher；
-8. CI automatic triage。
-
-## 验收
-
-### 单失败
-
-明确问题无需 AI。
-
-### 多失败
-
-能够形成：
+传统 Allure 能告诉测试人员：
 
 ```text
-N failures
-→ M clusters
+18 failed
 ```
 
-### Allure
+但实际可能只是：
 
-失败详情中直接看到 Triage。
+```text
+认证前置故障 -> 12
+Redis 连接问题 -> 4
+业务行为变化 -> 2
+```
+
+逐条点开排查效率很低。
+
+## 8.3 设计思路
+
+```text
+Failures
+↓
+Normalize / Fingerprint
+↓
+Cluster
+↓
+Known Deterministic Classifier
+↓
+Ambiguous Cluster
+↓
+AI Triage
+↓
+Allure Enrichment
+```
+
+AI 不修改 Pytest PASS/FAIL。
+
+## 8.4 使用方式
+
+原始 run artifact 保留不可修改。
+
+Triage 读取 artifact，生成增强证据，再进入 Allure 展示。
+
+## 8.5 阶段亮点（与传统方式的差异）
+
+不是让 LLM 把 traceback 换一种说法，而是先用确定性 fingerprint/cluster 降维，
+AI 只处理无法稳定分类的少数问题。
+
+## 8.6 阶段产出与验收
+
+已存在基础：
+
+- FailureEvidence；
+- Facts；
+- Sanitizer；
+- Provider/Protocol Config；
+- Fact 引用 Validator；
+- safe degradation。
+
+待完成：
+
+- Fingerprint；
+- Cluster；
+- Known Failure Classifier；
+- Allure Enricher；
+- CI 自动 Triage。
+
+## 8.7 阶段产生的问题与解决方式
+
+**问题：** AI 可能把猜测写成事实。
+**解决：** 假设必须引用真实 Fact ID。
+
+**问题：** 模型不可用可能污染测试结果。
+**解决：** AI 子系统独立降级，不改变原始 run/JUnit/Pytest exit code。
+
+## 8.8 阶段总结
+
+已有 AI Evidence Foundation 会在本阶段被真正用于“失败聚类 + 歧义分诊”，而不是提前冒充完成。
+
+## 8.9 当前进度
+
+**🟡 基础已具备，完整阶段未开始实施。**
 
 ---
 
-# Stage 9：第二 SUT 与最终可复用性验证
+# Stage 9：第二 SUT 与最终复用性证明
 
-## 阶段目标
+## 9.1 阶段目的
 
-证明：
+最后证明：
 
 > Shortlink 不是框架成立的前提。
 
-## 第二 SUT 选择原则
+## 9.2 当前问题 / 为什么需要该阶段
 
-优先选择：
+即使 Core 中没有明显 Shortlink 字样，如果只有一个真实 SUT，面试官仍可以质疑框架只是围绕当前业务自然长出来的。
 
-- 轻量；
-- 独立可运行；
-- 有 OpenAPI；
-- 业务与短链接明显不同；
-- 有认证或状态业务；
-- CI 可启动。
+## 9.3 设计思路
 
-## 硬验收
+选择业务与 Shortlink 明显不同、最好自带 OpenAPI 的第二 SUT。
 
-第二 SUT 接入过程中不得修改：
+目标：
+
+```text
+New SUT
+→ new env config
+→ new contract
+→ new YAML cases
+→ optional context/workflow
+→ Core zero business change
+```
+
+## 9.4 使用方式
+
+新项目只新增项目资产和配置，不修改：
 
 ```text
 core/
 db/
-ai/
 contracts/
-coverage/
-pytest_plugin/
+coverage_engine/
+ai/
+Generic Runtime
 ```
 
-只增加：
+## 9.5 阶段亮点（与传统方式的差异）
+
+复用性不靠口头宣称，而靠“第二 SUT 接入 Git diff”证明。
+
+## 9.6 阶段产出与验收
+
+- 第二 SUT；
+- OpenAPI Provider 真实使用；
+- Coverage；
+- Smart Regression；
+- zero-core-business-change proof；
+- 最终 README/架构/简历材料。
+
+## 9.7 阶段产生的问题与解决方式
+
+若第二 SUT 需要修改 Core 才能接入，优先判断：
+
+1. 真的是通用能力缺口？
+2. 还是项目特有逻辑应该留在 Adapter/Context/Workflow？
+
+只有第一类才能进入 Core。
+
+## 9.8 阶段总结
+
+这是框架“可复用”从设计原则变成可验证事实的最后一道门。
+
+## 9.9 当前进度
+
+**⏳ 未开始。**
+
+---
+
+# 4. Stage 5 Contract 配置规范（当前设计稿）
+
+## 4.1 配置位置
+
+第一版不新增额外 `project.yaml` 强迫用户维护第二份项目配置。
+
+继续复用：
 
 ```text
-projects/<project>/
 config/env.<project>.yaml
 ```
 
----
+加入：
 
-# 19. 当前总进度
+```yaml
+contract:
+  provider: static_manifest
+  source: testcases/my-project/contract/contract.yaml
+```
 
-| 能力 | 状态 |
-|---|---|
-| HTTP Runtime | ✅ |
-| Variable Context | ✅ |
-| Unified Assertions | ✅ |
-| MySQL / Redis | ✅ |
-| Allure | ✅ |
-| CI/CD | ✅ |
-| Real Shortlink SUT | ✅ |
-| AI Provider / Config / Sanitizer | ✅ |
-| Evidence-based AI Foundation | ✅ |
-| YAML-only Generic Runtime | ⏳ |
-| Case Registry | ⏳ |
-| Contract Model | ⏳ |
-| Coverage Index | ⏳ |
-| Smart Regression | ⏳ |
-| Risk-based Test Design | ⏳ |
-| Failure Clustering | ⏳ |
-| Allure AI Enrichment | ⏳ |
-| Second SUT Proof | ⏳ |
+或：
 
----
+```yaml
+contract:
+  provider: openapi
+  source: contracts/openapi.yaml
+```
 
-# 20. 推荐剩余实施排期
+## 4.2 Static Manifest 最小字段
 
-## 第 1 周：Declarative Runtime
+```yaml
+version: 1
+project: my-project
 
-- CaseSpec；
-- CaseRegistry；
-- Generic Pytest Runtime；
-- Context Provider；
-- Demo migration。
+operations:
+  - id: createOrder
+    service: order
+    visibility: external
+    method: POST
+    path: /api/orders
+```
 
-## 第 2 周：Shortlink Project Migration
+Request/Response Schema 可以渐进补充。
 
-- Shortlink Case V2；
-- Workflow；
-- real Smoke/Core/Regression；
-- architecture guard。
+## 4.3 为什么使用显式配置而不是自动猜路径
 
-## 第 3 周：Contract / Coverage
+隐藏自动发现对单一项目看起来方便，但多项目/多 Contract 时会变得不可控。
 
-- OpenAPI；
-- Static Manifest；
-- Coverage；
-- Gap。
+显式 `provider + source` 更容易：
 
-## 第 4 周：Smart Regression
-
-- Diff；
-- dependency；
-- selector；
-- fallback；
-- CI selection。
-
-## 第 5 周：AI Test Design + Triage
-
-- TestIntent；
-- compiler；
-- fingerprint；
-- cluster；
-- AI ambiguous reasoning。
-
-## 第 6 周：Allure + Second SUT + Finalization
-
-- Allure enrich；
-- second SUT；
-- README；
-- architecture diagram；
-- resume；
-- interview material。
+- CI；
+- 多环境；
+- Snapshot；
+- Debug；
+- 第二 SUT；
+- 面试讲解。
 
 ---
 
-# 21. P0 / P1 / P2 优先级
+# 5. 计划书长期维护规则
 
-## P0：必须完成
+每个阶段推进时，不再追加大段“V3.x.x 更新日志”。
 
-- YAML-only ordinary Case；
-- Python Workflow boundary；
-- Project isolation；
-- CaseRegistry；
-- operation_id；
-- Contract Provider；
-- Coverage Index；
-- deterministic regression selection；
-- Failure fingerprint/cluster；
-- Allure single-report integration；
-- second SUT proof。
+必须更新四个位置：
 
-## P1：AI 核心亮点
+1. 顶部 `版本 / 日期 / 当前阶段`；
+2. 当前 Stage 的：
+   - 问题与解决；
+   - 产出与验收；
+   - 当前进度；
+3. `阶段状态总览`；
+4. 若发生跨阶段架构决策，再更新“总体架构/边界”。
 
-- AI indirect impact；
-- Risk-based Test Design；
-- ambiguous failure triage；
-- candidate compiler。
-
-## P2：可选增强
-
-- 更多 Contract Provider；
-- OpenAI Responses；
-- Anthropic；
-- history trend；
-- flaky analysis；
-- richer risk taxonomy。
-
----
-
-# 22. 工程质量要求
-
-- Framework tests 必须长期绿色；
-- 新能力 TDD；
-- type hints；
-- module docs；
-- Secret 不泄漏；
-- Public Repo 无私有配置；
-- Raw Artifact immutable；
-- SUT hardcoding guard；
-- Provider hardcoding guard；
-- Project boundary guard；
-- deterministic selection safety guard。
-
----
-
-# 23. 文档清单
-
-最终建议：
+阶段关闭前必须有真实证据：
 
 ```text
-docs/
-├── 01_项目定位与架构.md
-├── 02_API执行引擎.md
-├── 03_YAML_Test_Specification.md
-├── 04_Python_Workflow.md
-├── 05_Project接入指南.md
-├── 06_断言与数据源.md
-├── 07_Contract与Coverage.md
-├── 08_Smart_Regression.md
-├── 09_AI_Test_Design.md
-├── 10_Failure_Triage.md
-├── 11_Allure与CI.md
-├── 12_Shortlink真实验证.md
-├── 13_第二SUT验证.md
-└── 14_面试讲解.md
-```
-
----
-
-# 24. 最终 README 必须回答
-
-1. 这个框架解决什么问题？
-2. 为什么不是普通 Pytest Scripts？
-3. YAML 和 Python 的边界是什么？
-4. 如何接入新项目？
-5. Simple Case 如何只写 YAML？
-6. Complex Workflow 如何写？
-7. Contract 怎么接？
-8. Coverage 怎么算？
-9. Smart Regression 怎么保证不漏测？
-10. AI 为什么有意义？
-11. AI 失败是否影响测试？
-12. Shortlink 为什么只是示例？
-13. 如何本地运行？
-14. 如何 CI 运行？
-15. 如何查看 Allure？
-
----
-
-# 25. 最终简历描述
-
-以下描述只在对应能力完成真实验收后使用。
-
-## 项目名称
-
-**AI 辅助接口自动化测试框架**
-
-## 技术栈
-
-```text
-Python
-Pytest
-Requests
-YAML
-Allure
-MySQL
-Redis
-OpenAPI
-GitHub Actions
-Jenkins
-LLM API
-```
-
-## 项目描述
-
-基于 Pytest + Requests 设计并实现可复用 API 自动化测试框架，将普通接口场景抽象为声明式 YAML Test Specification，并为复杂状态流程保留 Python Workflow；框架支持动态上下文、统一断言、MySQL/Redis 一致性验证、CI/CD 和 Allure 报告。进一步建立 API Contract 与测试用例 Coverage 关系，通过 Contract Diff 与依赖图实现变更感知回归选择，并利用 LLM 对覆盖缺口进行风险测试设计、对复杂失败进行证据驱动分诊。
-
-## 最终亮点
-
-- 普通接口 Case 无需重复编写 Python wrapper；
-- 新 SUT 不修改 Framework Core；
-- Contract Change -> Coverage -> Regression Selection 闭环；
-- AI 只处理语义风险和复杂故障推理；
-- 多失败自动聚类；
-- AI 结果嵌入 Allure；
-- 第二真实 SUT 验证可复用性。
-
----
-
-# 26. 面试讲解主线
-
-建议按以下顺序：
-
-### 1. 为什么做
-
-传统接口脚本：
-
-```text
-重复 Requests
-重复断言
-重复上下文
-重复报告
-测试资产难分析
-变更后通常全量回归
-失败后逐条排查
-```
-
-### 2. 第一层解决
-
-统一：
-
-```text
-Request
-Context
-Assertion
-DB/Redis
-Allure
-CI
-```
-
-### 3. 第二层解决
-
-普通 Case：
-
-```text
-YAML Test Specification
-```
-
-复杂 Case：
-
-```text
-Python Workflow
-```
-
-### 4. 第三层解决
-
-```text
-Contract
-↓
-Coverage
-↓
-Change
-↓
-Regression Selection
-```
-
-### 5. AI 放在哪里
-
-```text
-Before Test:
-Risk-based Test Design
-
-Before Regression:
-Semantic Impact
-
-After Test:
-Failure Triage
-```
-
-### 6. 为什么可信
-
-```text
-AI 不决定 PASS/FAIL
-AI 不删除 Mandatory Tests
-AI 输出有 Validator
-AI 引用真实 Evidence
-AI 失败安全降级
-```
-
-### 7. 如何证明可复用
-
-```text
-Shortlink SUT
+Code
 +
-Second SUT
+Automated Tests
 +
-Core zero business change
+Real Run / CI / Artifact（适用时）
 ```
 
 ---
 
-# 27. 风险与约束
+# 6. 当前下一步
 
-## 27.1 YAML 过度设计
-
-禁止把 YAML 做成：
+Stage 5 代码侧已经完成：
 
 ```text
-if
-for
-while
-try
-finally
+ApiContract
++ StaticManifestProvider
++ OpenAPIProvider
++ Workflow 多 Operation
++ CoverageIndex / CoverageGap
++ Standalone Coverage CLI
++ Shortlink Static Manifest
 ```
 
-复杂控制流回 Python。
+当前只剩用户本机复验：
 
-## 27.2 AI 幻觉
-
-必须：
-
-- schema；
-- refs；
-- validator；
-- fallback；
-- human review。
-
-## 27.3 Smart Regression 漏测
-
-必须：
-
-- deterministic mandatory set；
-- smoke；
-- dependency expansion；
-- full fallback；
-- AI only adds。
-
-## 27.4 Contract 不完整
-
-Contract 缺失时：
-
-```text
-不能假装精准选择
+```bash
+python -m pytest tests -q
+python -m coverage_engine.cli --env shortlink-local
+python run.py --env test --level smoke
 ```
 
-必须安全回退。
-
-## 27.5 SUT 污染 Core
-
-所有项目特有逻辑必须留在 `projects/<name>/`。
-
----
-
-# 28. 最终验收标准
-
-## 28.1 可复用
-
-- 至少两个不同 SUT；
-- 第二 SUT 接入 Core 零修改；
-- Project 目录可独立删除。
-
-## 28.2 可执行
-
-- simple YAML Case；
-- complex Workflow；
-- smoke/core/regression；
-- MySQL/Redis；
-- Allure；
-- CI。
-
-## 28.3 可分析
-
-- case_id；
-- operation_id；
-- risk；
-- coverage；
-- dependency；
-- contract diff。
-
-## 28.4 可智能回归
-
-- direct impact；
-- dependency；
-- full fallback；
-- selection evidence；
-- AI semantic supplement。
-
-## 28.5 AI 有实际价值
-
-- Coverage Gap -> TestIntent；
-- multi-failure -> clusters；
-- ambiguous failure -> triage；
-- known single failure -> no unnecessary AI。
-
-## 28.6 安全
-
-- no secret leak；
-- raw artifacts immutable；
-- AI no PASS/FAIL；
-- AI no mandatory test deletion。
-
-## 28.7 可展示
-
-最终演示至少包含：
-
-```text
-1. 新增 YAML Case，无 Python wrapper，Pytest 自动执行
-2. Complex Workflow 复用 case_id
-3. Contract 变化
-4. Smart Regression 选择测试
-5. Coverage Gap
-6. AI 生成 TestIntent
-7. 构造多个失败
-8. Failure Cluster
-9. AI Triage
-10. Allure 查看完整结果
-11. 第二 SUT 执行
-```
-
----
-
-# 29. 最终项目完成定义
-
-只有当以下命题全部成立时，项目才算真正完成：
-
-> **不用 AI，这仍然是一个有价值的通用 API 自动化测试框架。**
-
-> **换一个 SUT，Framework Core 不需要为了业务修改。**
-
-> **普通 Case 的 YAML 真正替代了重复 Python 测试 wrapper。**
-
-> **复杂业务仍然可以使用 Python，而不是被迫塞进 YAML。**
-
-> **测试资产可以通过 Contract / Coverage 被分析。**
-
-> **API 变化后可以解释为什么全量或为什么只跑部分回归。**
-
-> **AI 只在风险推理、语义影响和复杂失败分析中发挥作用。**
-
-> **AI 的每个结论都有结构化输入、约束、证据和安全降级。**
-
-达到以上标准后，再进入最终发布、简历和面试材料封板。
+本机复验通过后，将 Stage 5 状态更新为 ✅ 已完成，再进入 Stage 6 Contract Diff / Smart Regression。

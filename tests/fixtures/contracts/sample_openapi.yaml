@@ -1,0 +1,69 @@
+openapi: 3.0.3
+info:
+  title: inventory-service
+  version: 1.2.0
+paths:
+  /api/items/{itemId}:
+    parameters:
+      - name: itemId
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      operationId: getItem
+      summary: Query one item
+      x-service: catalog
+      x-visibility: external_gateway
+      parameters:
+        - name: verbose
+          in: query
+          required: false
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Item'
+  /api/items:
+    post:
+      summary: Create item without explicit operationId
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateItemRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Item'
+components:
+  schemas:
+    CreateItemRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        count:
+          type: integer
+          format: int32
+    Item:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
