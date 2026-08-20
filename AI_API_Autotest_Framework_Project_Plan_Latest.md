@@ -1,8 +1,8 @@
 # AI 辅助接口自动化测试框架项目计划书
 
-> **版本**：V3.3.3
+> **版本**：V3.3.6
 > **更新日期**：2026-08-19
-> **当前阶段**：项目定位严格保持“AI 辅助接口自动化测试框架”。Stage 6 CI/CD 已正式关闭；**Stage 7.1 失败日志分析的离线实现已完成**：AI 专项 28/28、全量框架 139/139、原 `run.py` Mock Smoke 2/2、compileall、SUT 硬编码守门与 sentinel 泄漏扫描均通过。当前仅剩 Stage 7.1 **真实 Provider 调用验收**，完成后进入 Stage 7.2 YAML 草稿生成。
+> **当前阶段**：项目定位严格保持“AI 辅助接口自动化测试框架”。Stage 1–5 核心架构与 Stage 6 CI/CD 代码审计后继续保留；Stage 7.1 Evidence/Facts/Sanitizer/Validator 继续保留。当前正在执行 **Stage 7.1 V2 AI YAML-first 配置重构**：新增 AIConfigResolver、Protocol Factory、YAML/ai.local/Home/ENV 分层、CLI 临时覆盖与隐藏 Key 输入，并修复 `.idea` 仓库卫生回归和“GitHub/Jenkins 不是最终用户前提”的文档定位。真实 Provider 验收在 V2 重构与 CI 再次通过后执行。
 > **文档用途**：记录项目背景、仓库核查结论、技术路线、阶段任务、验收标准、风险约束和后续交付物，作为后续开发、AI 协作、项目移交、简历整理和面试准备的统一依据。
 
 ---
@@ -2814,4 +2814,132 @@ Task 1 实施计划中的“6 passed”是计划书计数笔误：真实 Contrac
 ```
 
 真实 Provider Key 继续只留在用户本机环境/Secret Store，不提交 GitHub，不写进公共 YAML，不发给 AI 协作者。
+
+---
+
+## V3.3.6 状态更新（2026-08-19）
+
+### Stage 7.1 V2：AI 配置架构重构
+
+本轮重新同时站在两种身份审查框架：
+
+```text
+A. 当前框架开发者
+   -> 公共 GitHub / GitHub Actions / Jenkins
+   -> 必须避免把真实私密数据提交到公共仓库
+
+B. 最终框架用户
+   -> 可以只下载框架并本地运行
+   -> 不要求 GitHub / Jenkins / 环境变量
+   -> 可以直接通过 YAML 配置真实 SUT 和真实 AI
+```
+
+因此 Stage 7.1 第一版“AI Provider 主要通过 OS ENV 配置”的设计被 V2 取代。
+
+### 前阶段审计结论
+
+```text
+Stage 1–3 Framework Core       -> 保持，不修改
+Stage 4/4.5 Shortlink Adapter  -> 保持，不修改
+Stage 5 MySQL/Redis            -> 保持，不修改
+core/config_manager.py         -> 保持既有已验收优先级
+run.py                         -> 保持
+Jenkinsfile                    -> 保持，checkout scm 未写死 GitHub
+Stage 6 文档定位               -> 修正：CI/CD 是可选工程化方式
+Repository Hygiene             -> 修复 .idea 回归
+Stage 7.1 Evidence Core        -> 保持
+Stage 7.1 Provider Config      -> V2 重构
+```
+
+### V2 AI 配置最终规则
+
+主配置：
+
+```text
+<project>/config/ai.yaml
+↓ 不存在
+~/.ai-api-autotest-framework/ai.yaml
+```
+
+项目 Git 开发者可以额外创建被忽略的：
+
+```text
+config/ai.local.yaml
+```
+
+字段优先级：
+
+```text
+CLI
+> config/ai.local.yaml
+> 主 YAML
+> AI_* ENV fallback
+```
+
+API Key：
+
+```text
+--api-key-prompt
+> ai.local.yaml
+> ai.yaml
+> AI_API_KEY
+```
+
+禁止提供：
+
+```text
+--api-key VALUE
+```
+
+### Provider / Protocol 解耦
+
+Provider 只是 YAML Profile 名；Python production code 不判断 DeepSeek/Qwen/OpenAI 名称。
+
+```text
+AIProviderConfig.protocol
+→ AIClientFactory
+→ Protocol Adapter
+```
+
+第一版协议：
+
+```text
+openai_chat_completions
+```
+
+因此同协议新 Provider/Model 只改 YAML；只有真正的新 API 协议才新增 Adapter。
+
+### Repository Hygiene
+
+本轮恢复并锁定：
+
+```text
+.idea/
+config/ai.local.yaml
+```
+
+均进入根 `.gitignore`。当前 GitHub 历史已经跟踪的 `.idea/**` 需要在用户现有 Git 仓库覆盖 V3.3.6 后执行一次：
+
+```bash
+git rm -r --cached .idea
+```
+
+随后提交删除记录，避免后续再次进入公共仓库。
+
+### 当前状态
+
+```text
+Stage 1–5                        ✅ 保持
+Stage 6 code                     ✅ 保持
+Stage 6 docs                     🔧 本轮纠正
+Repository hygiene               🔧 本轮修复
+Stage 7.1 Evidence Core          ✅ 保持
+Stage 7.1 YAML-first Config      🔧 本轮实现
+Stage 7.1 Protocol Factory       🔧 本轮实现
+Stage 7.1 Real Provider          ⏳ V2 + CI 通过后验收
+Stage 7.2 YAML Draft             ⏳ 未开始
+Stage 8 Final                    ⏳ 未开始
+```
+
+> 历史 V3.3.3 中“Provider 配置只来自 AI_* OS 环境变量”的描述已经被本 V3.3.6 规则取代；保留历史段落仅用于开发过程追踪，不再作为当前执行规范。
 

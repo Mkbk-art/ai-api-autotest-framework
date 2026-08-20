@@ -1,23 +1,27 @@
-"""Stage 7.1 Provider 无关 AI Client 边界与 OpenAI-compatible HTTP Adapter。
+"""Stage 7.1 V2 Provider 无关 AI Client 与协议 Adapter Factory。
 
-``failure_analyzer`` 只依赖 ``AIClient`` Protocol，不直接依赖任何模型厂商 SDK。
-真实 HTTP Adapter 复用项目已有 ``requests`` 依赖，并且只从运行环境读取模型地址、
-API Key、模型名和超时；这些值不会写进框架公共 YAML 或测试 Artifact。
+本模块只理解“协议”，不理解 DeepSeek、Qwen、OpenAI 等 Provider 厂商名。Provider、
+Base URL、Model 和 Key 都由 ``AIConfigResolver`` 解析为 ``AIProviderConfig``；Factory
+只根据 ``protocol`` 选择实现。这样同一协议下新增任意厂商或企业内部网关只需要改 YAML。
+
+第一版只实现 ``openai_chat_completions``。未来遇到真正不同的 API 协议时，再新增新的
+Protocol Adapter，而不是为每个 Provider 增加 if/elif 分支。
 """
 from __future__ import annotations
 
-# json 只负责把安全 Evidence 编码为模型消息，以及严格解析模型返回 content。
+# json 只负责把已经脱敏的 Evidence 编码为模型消息，以及严格解析 Provider JSON content。
 import json
-# os.environ 是 CI Secret / 本机 Secret Store 向 Provider Adapter 提供配置的唯一默认入口。
-import os
-# Any 兼容 requests.Session 与测试 FakeSession；Mapping 方便单测注入独立环境变量字典。
-from typing import Any, Mapping, Protocol
+# Any 兼容 requests.Session 与测试 FakeSession；Protocol 定义 FailureAnalyzer 的最小依赖边界。
+from typing import Any, Protocol
 
-# requests 是框架既有运行时依赖；Stage 7.1 不新增厂商 SDK。
+# requests 是框架既有运行时依赖；Stage 7.1 不为了不同 Provider 引入厂商 SDK。
 import requests
 
+# Factory 消费解析后的不可变配置；配置来源/YAML 优先级不属于 Client 职责。
+from ai.config import AIProviderConfig
 
-# System Prompt 只定义“证据约束和 JSON 协议”，不包含任何当前真实 SUT 业务知识。
+
+# System Prompt 只定义“事实约束 + JSON 输出协议”，不包含任何真实 SUT 或模型厂商知识。
 _SYSTEM_PROMPT = """You are an API test failure analysis assistant.
 Use only the supplied deterministic facts as evidence.
 Do not invent runtime state, database contents, service state, or code behavior.
@@ -35,8 +39,11 @@ class AIClient(Protocol):
         ...
 
 
-class OpenAICompatibleClient:
-    """通过 OpenAI-compatible ``/chat/completions`` 协议调用模型的轻量 Adapter。"""
+class OpenAIChatCompletionsClient:
+    """实现 OpenAI-compatible ``/chat/completions`` 协议的轻量 Adapter。
+
+    类名故意描述协议而不是厂商：任何兼容该协议的 Provider Profile 都能复用本实现。
+    """
 
     def __init__(
         self,
@@ -47,78 +54,43 @@ class OpenAICompatibleClient:
         timeout: float = 20.0,
         session: Any = None,
     ) -> None:
-        """保存 Provider 连接参数，不在构造阶段发起任何网络请求。
+        """保存单次 Provider 连接参数，不在构造阶段联网或记录 Secret。
 
         Args:
-            base_url: Provider 的 API 根地址，通常以 ``/v1`` 结尾。
-            api_key: 只保存在当前进程内存中的密钥。
-            model: Provider 侧模型名称。
+            base_url: 当前 Profile 的 API 根地址；Adapter 固定在其后拼接 ``/chat/completions``。
+            api_key: 仅存在当前 Client 内存中的鉴权值，绝不主动写入日志/Artifact。
+            model: Provider 暴露的模型 ID；完全由 YAML/CLI 决定。
             timeout: 单次模型 HTTP 请求超时秒数。
-            session: 可注入 requests.Session/FakeSession，便于测试完全离线。
+            session: 可注入 requests.Session/FakeSession，保证公共测试完全离线。
         """
 
-        # 去掉末尾斜杠，后续固定拼接 /chat/completions，避免出现双斜杠。
+        # 去掉末尾斜杠，后续拼接固定协议路径时避免 ``//chat/completions``。
         self.base_url = base_url.strip().rstrip("/")
         self.api_key = api_key.strip()
         self.model = model.strip()
         self.timeout = float(timeout)
-        # 没有测试注入时才创建真实 Session；构造本身仍不联网。
+        # 只有没有测试注入时才创建真实 Session；构造本身仍不发请求。
         self.session = session or requests.Session()
 
-    @classmethod
-    def from_env(
-        cls,
-        environ: Mapping[str, str] | None = None,
-    ) -> "OpenAICompatibleClient | None":
-        """从 OS 环境变量创建可选 Provider Adapter。
-
-        缺少 base/key/model 任一项时返回 ``None``，表示 AI 能力未配置；这不是框架错误，
-        因为 Stage 7.1 必须允许“只生成 Evidence、不调用模型”的安全降级模式。
-        """
-
-        values = os.environ if environ is None else environ
-        base_url = (values.get("AI_API_BASE") or "").strip()
-        api_key = (values.get("AI_API_KEY") or "").strip()
-        model = (values.get("AI_MODEL") or "").strip()
-
-        # 三项都属于真实 Provider 调用的必要条件；缺少时不创建半配置 Client。
-        if not base_url or not api_key or not model:
-            return None
-
-        raw_timeout = (values.get("AI_TIMEOUT") or "20").strip()
-        try:
-            timeout = float(raw_timeout)
-        except ValueError as exc:
-            raise ValueError(f"AI_TIMEOUT must be numeric, got {raw_timeout!r}") from exc
-        if timeout <= 0:
-            raise ValueError("AI_TIMEOUT must be greater than 0")
-
-        return cls(
-            base_url=base_url,
-            api_key=api_key,
-            model=model,
-            timeout=timeout,
-        )
-
     def analyze_failure(self, evidence: dict[str, Any]) -> object:
-        """把安全 Evidence 发给模型，并严格解析 ``choices[0].message.content`` JSON。
+        """发送安全 Evidence，并严格解析 ``choices[0].message.content`` 的 JSON。
 
-        该方法不负责校验 hypothesis 是否引用真实 Fact；那属于 ``contracts`` 的确定性边界。
-        这里也不会记录 API Key、完整 Prompt 或 Provider raw body，避免模型接入扩大泄密面。
+        Fact ID 是否真实存在由 ``contracts`` Validator 负责；本层只实现 HTTP 协议。为了避免
+        把 Provider 异常输出伪装成成功，这里不剥 Markdown fence、不做正则 JSON 修复。
         """
 
-        # User message 只包含 FailureAnalyzer 已经脱敏后的 Evidence；不读取私有 YAML/原始日志。
+        # User message 只包含 FailureAnalyzer 已脱敏 Evidence；Client 不读取私有 YAML 或原始日志。
         user_content = json.dumps(evidence, ensure_ascii=False)
         response = self.session.post(
             f"{self.base_url}/chat/completions",
             headers={
-                # API Key 只存在实际 HTTP Header 中，不写日志、不写 Artifact。
+                # API Key 只放到真实 HTTP Header；不会被 Framework Logger 主动输出。
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json",
             },
             json={
                 "model": self.model,
-                # 失败分析优先稳定可复现，temperature 固定为 0。
+                # 故障分析强调稳定和可复现，因此协议层固定 temperature=0。
                 "temperature": 0,
                 "messages": [
                     {"role": "system", "content": _SYSTEM_PROMPT},
@@ -127,21 +99,48 @@ class OpenAICompatibleClient:
             },
             timeout=self.timeout,
         )
-        # 非 2xx 交给 Requests/FakeResponse 抛异常，上层统一降级为 ai_status=error。
+        # 非 2xx 由 Requests/FakeResponse 抛出；FailureAnalyzer 上层统一降级为 ai_status=error。
         response.raise_for_status()
 
         try:
             payload = response.json()
             content = payload["choices"][0]["message"]["content"]
         except (TypeError, KeyError, IndexError) as exc:
-            # Provider 协议结构非法时给明确错误，但不把 raw response 内容写入异常文本。
+            # 异常只说明协议结构缺失，不拼 raw response，避免第三方响应意外携带敏感值。
             raise ValueError("AI provider response does not contain message content") from exc
 
         if not isinstance(content, str):
             raise ValueError("AI provider message content must be text JSON")
 
         try:
-            # 只允许严格 JSON；不剥 Markdown fence、不用正则猜 JSON，避免把异常输出伪装成成功。
             return json.loads(content)
         except json.JSONDecodeError as exc:
             raise ValueError("AI provider message content must be valid JSON") from exc
+
+
+class AIClientFactory:
+    """按 ``AIProviderConfig.protocol`` 创建模型客户端，而不是按 Provider 厂商名分支。"""
+
+    # 映射键是协议标识。新增同协议 Provider 不改此表；只有新增“新协议”才新增 Adapter。
+    _PROTOCOLS: dict[str, type[OpenAIChatCompletionsClient]] = {
+        "openai_chat_completions": OpenAIChatCompletionsClient,
+    }
+
+    @classmethod
+    def create(cls, config: AIProviderConfig) -> AIClient:
+        """根据已解析配置创建对应 Protocol Adapter，未知协议明确失败。"""
+
+        client_type = cls._PROTOCOLS.get(config.protocol)
+        if client_type is None:
+            # 错误只包含协议名，不包含整份 config/repr，从源头避免 Key 被拼进异常。
+            raise ValueError(f"Unsupported AI protocol: {config.protocol}")
+        return client_type(
+            base_url=config.base_url,
+            api_key=config.api_key,
+            model=config.model,
+            timeout=config.timeout,
+        )
+
+
+# Stage 7.1 第一版曾公开该类名；保留 alias 只为兼容，不再承担环境变量配置职责。
+OpenAICompatibleClient = OpenAIChatCompletionsClient

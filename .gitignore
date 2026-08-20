@@ -14,3 +14,9 @@ extract.yaml
 .env
 
 .worktrees/
+
+# IDE 本机元数据不属于框架源码，禁止再次进入版本库或发布包。
+.idea/
+
+# AI 私有本机覆盖文件可能包含真实 Provider Key，默认禁止提交。
+config/ai.local.yaml

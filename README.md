@@ -1,6 +1,6 @@
 # AI 辅助接口自动化测试框架
 
-> 当前版本：V3.2.6 / Stage 6 CI/CD + 外部私有环境覆盖
+> 当前版本：V3.3.6 / Stage 7.1 AI YAML-first 配置重构（真实 Provider 待验收）
 
 这是一个面向测试开发场景的**可复用接口自动化测试框架**。项目以 MIT 许可的
 `zed123214/api-autotest-framework` 为学习与改造基线，围绕 Pytest + Requests + YAML
@@ -437,59 +437,150 @@ Core        6 / 18
 Regression  6 / 18
 ```
 
-## 11. CI/CD、真实项目接入与私有配置边界
+## 11. 运行方式：本地、团队 SCM 与当前公共开发模式
 
-项目主体始终是 **AI 辅助接口自动化测试框架**。短链接 SaaS 位于 Project Adapter/Test Cases 层，是一个可公开参考的真实 SUT 接入示例，不进入框架核心。
+框架核心只依赖 Python、YAML 和目标测试环境，**不要求 GitHub，也不要求 Jenkins**。GitHub Actions/Jenkins 是工程化运行方式，不是 Framework Core 的前置条件。
 
-Stage 6 的 CI 职责：
-
-```text
-GitHub Actions
-→ 云端验证公共框架 + Mock/Demo
-→ 不依赖开发者本机真实 SUT
-
-Jenkins
-→ 部署在能访问目标测试环境的 Agent
-→ ENV_NAME 选择公开命名环境
-→ LEVEL 选择 smoke/core/regression
-→ ENV_FILE 可选指向仓库外私有覆盖 YAML
-→ 始终调用统一 run.py
-```
-
-公共真实项目配置可以继续上传 GitHub：
+### 11.1 Local Only：最终用户最简单的使用方式
 
 ```text
-config/env.<project>.yaml        # 敏感值使用 CHANGE_ME
-testcases/<project>/            # 真实项目适配与 YAML 用例
+下载/克隆框架
+→ 配置 config/env.<project>.yaml
+→ 配置 testcases/<project>/
+→ 可选配置 config/ai.yaml
+→ python run.py ...
+→ python -m ai.cli analyze ...
 ```
 
-真实账号、数据库密码等只保存在仓库外覆盖 YAML。该文件可以只写需要覆盖的字段；ConfigManager 以：
+用户如果完全不使用 Git，可以直接在自己的 YAML 中填写真实测试账号、数据库密码和 AI Key。框架不会强迫用户先建立 GitHub/Jenkins。
+
+### 11.2 Team SCM / Optional Jenkins
+
+团队可以按自己的基础设施选择：
+
+```text
+GitHub / GitLab / Gitee / 企业内部 Git / 其他 SCM
+                      ↓
+               可选 Jenkins/其他 CI
+```
+
+当前 `Jenkinsfile` 使用 `checkout scm`，并没有写死 GitHub 地址。`ENV_NAME / LEVEL / ENV_FILE` 仍然是框架级参数。使用 Git 的团队若不希望把真实凭据提交进仓库，可以继续使用外部环境 YAML。
+
+SUT `ConfigManager` 的既有优先级保持：
 
 ```text
 CLI > env vars > external env YAML > env.<name>.yaml > config.yaml
 ```
 
-递归合并。统一 Runner 同时支持：
+该优先级已通过真实 SUT/Jenkins 验收，本次 AI 重构不修改它。
 
-```bash
-python run.py --env <project> --env-file "<external-yaml>" --level smoke
-```
+### 11.3 Current Public Development：本仓库自己的开发方式
 
-Jenkins 参数为：
+当前项目为了版本管理、公共 CI 和作品证据使用：
 
 ```text
-ENV_NAME = config/env.<name>.yaml 对应环境名
-LEVEL    = smoke / core / regression
-ENV_FILE = 可选的 Jenkins Agent 仓库外覆盖 YAML 路径
+GitHub Actions
++
+Jenkins Windows Agent
 ```
 
-`ENV_FILE` 留空时保持现有 Mock/公共配置行为；有值时 Jenkins 仅把路径临时注入 `API_TEST_ENV_FILE`，不复制私有 YAML 到 Workspace，也不归档其内容。因此以后接入其他 SUT，不需要修改公共 CI 调度逻辑。详细说明见 `docs/10_CI-CD接入说明.md`。
+这是**本框架当前开发/验证/展示方式**，不是最终用户必须复制的部署架构。详细说明见 `docs/10_CI-CD接入说明.md`。
 
-## 12. Stage 7.1：可选 AI 失败分析
+## 12. Stage 7.1：YAML-first AI 失败分析
 
-Stage 7.1 不改变现有测试判定链，而是在一次运行结束后读取 `run.json + junit.xml`，先由确定性代码生成 Facts，再对安全 Evidence 做可选模型分析。
+Stage 7.1 仍然不改变测试判定链：
 
-完全离线、无需模型 Key：
+```text
+run.py / Pytest / AssertionEngine
+→ 原始 PASS / FAIL
+
+测试结束后：
+run.json + junit.xml
+→ Deterministic Facts
+→ Sanitizer
+→ AI Client
+→ Fact 引用校验
+→ ai-analysis/*
+```
+
+### 12.1 普通用户：直接配置 `config/ai.yaml`
+
+`config/ai.yaml` 是真正主配置，不是仅供 GitHub 展示的模板。最终用户可以直接配置：
+
+```yaml
+ai:
+  provider: my-provider
+  timeout: 30
+
+  providers:
+    my-provider:
+      protocol: openai_chat_completions
+      base_url: https://provider.example/v1
+      model: model-name
+      api_key: your-real-key
+```
+
+如果项目根目录没有 `config/ai.yaml`，Resolver 才会查找：
+
+```text
+~/.ai-api-autotest-framework/ai.yaml
+```
+
+### 12.2 Git 开发者：可选 `config/ai.local.yaml`
+
+本公共仓库不能提交真实 Key，所以开发者可以创建：
+
+```text
+config/ai.local.yaml
+```
+
+它已被 `.gitignore`，只需要覆盖真实 Key 或本机模型差异。**这个文件不是最终用户使用框架的前提。**
+
+### 12.3 AI 配置优先级
+
+```text
+CLI 临时覆盖
+> config/ai.local.yaml
+> 主 YAML（project ai.yaml；不存在才用 Home ai.yaml）
+> AI_* 环境变量 fallback
+```
+
+环境变量只保留给 CI Secret / 高级用户 fallback，不再是普通用户主入口。
+
+CLI 支持：
+
+```text
+--provider
+--protocol
+--base-url
+--model
+--timeout
+--api-key-prompt
+```
+
+**不提供 `--api-key VALUE`**，避免 Secret 进入 shell history/process list。
+
+### 12.4 Provider 与 Protocol 解耦
+
+Provider 只是 YAML Profile 名。Production Python 不判断 DeepSeek/Qwen/OpenAI 厂商名，只按：
+
+```text
+AIProviderConfig.protocol
+→ AIClientFactory
+→ Protocol Adapter
+```
+
+第一版协议：
+
+```text
+openai_chat_completions
+```
+
+因此同一协议下接入新的公开 Provider 或企业内部模型网关，只需要改 YAML；只有遇到真正不同的 API 协议时才新增 Adapter。
+
+### 12.5 AI 分析命令
+
+完全离线：
 
 ```bash
 python -m ai.cli analyze \
@@ -497,16 +588,13 @@ python -m ai.cli analyze \
   --no-ai
 ```
 
-可选 OpenAI-compatible Provider 只从 OS 环境/Secret Store 读取：
+YAML 配好 Provider 后：
 
-```text
-AI_API_BASE
-AI_API_KEY
-AI_MODEL
-AI_TIMEOUT
+```bash
+python -m ai.cli analyze --run-dir reports/runs/<run_id>
 ```
 
-输出位于：
+输出：
 
 ```text
 reports/runs/<run_id>/ai-analysis/evidence.json
@@ -514,46 +602,28 @@ reports/runs/<run_id>/ai-analysis/analysis.json
 reports/runs/<run_id>/ai-analysis/analysis.md
 ```
 
-关键边界：
-
-- AI 不决定或覆盖 Pytest / AssertionEngine 的 PASS/FAIL；
-- AI 不可用、超时、HTTP 错误或非法 JSON 时只降级 `ai_status`；
-- 每条 hypothesis / next_check 必须引用真实 `F#`；
-- 模型输入先经过结构化 + 文本双层脱敏；
-- `ai/` production code 不知道当前 Shortlink SUT；
-- 公共 CI 不要求真实 AI Key。
-
-当前已完成 Provider Adapter 的 Fake HTTP 离线验证；**真实在线 Provider 调用将在用户本机配置 Key 后单独验收，在此之前不宣称真实在线模型调用已通过。**
-
-详细说明见 `docs/11_AI失败分析接入说明.md`。
+当前已经完成 YAML Resolver、Protocol Factory、Fake Client/Fake HTTP 和安全降级的离线验收；**真实在线 Provider 仍要在本机配置真实 Key 后单独验证，在此之前不宣称在线模型调用已通过。**
 
 ## 13. 证据边界
 
-- Stage 4 Smoke：用户 Windows 真实环境 `6/6`；
-- Stage 4.5 Core：用户 Windows 真实环境 `6/6`；
-- Stage 5 Regression：用户已确认 Redis 协议修复后的完整回归测试通过，因此通用 MySQL/Redis YAML 数据断言已完成真实 SUT 验收；
-- Stage 6：GitHub Actions 已真实绿色；Jenkins Mock `test/smoke` 已 2/2 SUCCESS；真实 Shortlink SUT `shortlink-local/smoke` 已 6/6 SUCCESS，并完成 JUnit、Artifacts、外部私有 YAML 与每 Build 报告隔离的真实平台验收。
-- Stage 7.1：确定性 Evidence、双层脱敏、严格 Fact 引用、OpenAI-compatible Adapter、Fake Client/Fake HTTP 与安全降级已进入离线实现验收；真实 Provider 调用待本机配置 Key 后单独验证。
+- Stage 4 Smoke：真实环境 `6/6`；
+- Stage 4.5 Core：真实环境 `6/6`；
+- Stage 5 Regression：真实 SUT `6/6`，通用 MySQL/Redis YAML 数据断言已完成验收；
+- Stage 6：GitHub Actions 真实绿色；Jenkins Mock `2/2 SUCCESS`；真实 SUT Smoke `6/6 SUCCESS`；JUnit、Artifacts、外部私有 YAML 与每 Build 报告隔离均已真实验证；
+- Stage 7.1：Evidence/Facts/Sanitizer/Validator 已保留并回归；YAML-first AI 配置与 Protocol Factory 已进入离线重构验收；真实 Provider 待重构通过 CI 后执行。
 
 ## 14. 后续路线
 
-项目定位始终保持“AI 辅助接口自动化测试框架”，后续继续按照最初路线增强框架，而不是继续无限扩张短链接脚本：
-
 ```text
-Stage 5 ✅
-通用 MySQL / Redis YAML 数据断言 + 真实 SUT 验证
+Stage 5 ✅  通用 MySQL / Redis YAML 数据断言
         ↓
-Stage 6 ✅
-GitHub Actions / Jenkins / 报告归档
+Stage 6 ✅  可选 CI/CD 工程化能力
         ↓
-当前 Stage 7.1
-AI：失败日志 → 结构化事实 + 原因与排查建议
+Stage 7.1  AI 失败分析 + YAML-first Provider 配置
         ↓
-Stage 7.2
-AI：接口文档 → YAML 用例草稿
+Stage 7.2  AI：接口说明 → YAML 用例草稿
         ↓
-Stage 8
-README、架构图、简历与面试材料
+Stage 8      README、架构图、简历与面试材料
 ```
 
 ## 15. 开源来源与个人工作边界

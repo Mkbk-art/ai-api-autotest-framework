@@ -1,0 +1,37 @@
+# AI 辅助能力主配置。
+#
+# 最终用户如果不使用 Git，可以直接在本文件填写 Provider、Model 和真实 API Key，
+# 然后运行 ``python -m ai.cli analyze --run-dir ...``；框架不要求 GitHub、Jenkins 或
+# OS 环境变量才能使用 AI。
+#
+# 当前公共仓库本身使用 Git 开发，所以这里默认不选择 Provider，也不保存真实 Key。
+# 开发者需要本机真实 Key 时，可创建被 .gitignore 保护的 ``config/ai.local.yaml``，
+# 只覆盖 api_key 或其他本机差异。CI 也可以使用 AI_* 环境变量作为最后 fallback。
+#
+# 字段最终优先级：CLI 临时覆盖 > ai.local.yaml > 本主 YAML > AI_* 环境变量 fallback。
+ai:
+  # 当前 Provider Profile 名称。它只是用户定义的配置名，Python 不会根据
+  # DeepSeek/Qwen/OpenAI 等厂商名称做分支；null 表示当前尚未启用真实 AI Provider。
+  provider: null
+
+  # 当具体 Profile 没有 timeout 时使用的 YAML 默认超时秒数；必须为正数。
+  timeout: 20
+
+  # Provider Profile 集合。
+  # 每个 Profile 通过 protocol 选择协议 Adapter；同一 protocol 下更换厂商、Base URL、
+  # Model 只需要修改 YAML，不需要修改 Python production code。
+  providers: {}
+
+  # 最终用户配置示例（使用时把下面结构写进 providers，并把 provider 改成对应 Profile 名）：
+  # providers:
+  #   my-provider:
+  #     # protocol 是真正的代码扩展点；Provider 名只是用户自己起的 Profile 名。
+  #     protocol: openai_chat_completions
+  #     # Provider API 根地址；当前协议 Adapter 会在后面拼接 /chat/completions。
+  #     base_url: https://provider.example/v1
+  #     # 模型 ID 完全由 Provider 暴露，框架不维护模型白名单。
+  #     model: your-model-name
+  #     # 不使用 Git 的最终用户可以直接填写真实 Key；Git 开发者建议改写 ai.local.yaml。
+  #     api_key: your-real-key
+  #     # 可选：覆盖上面的 ai.timeout。
+  #     timeout: 30
