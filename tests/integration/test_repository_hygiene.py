@@ -25,6 +25,7 @@ def test_gitignore_protects_ide_and_private_ai_config():
 
     assert ".idea/" in content
     assert "config/ai.local.yaml" in content
+    assert "config/env.*.private.yaml" in content
 
 
 def test_public_tree_does_not_track_idea_directory():
@@ -35,6 +36,22 @@ def test_public_tree_does_not_track_idea_directory():
 
     result = subprocess.run(
         ["git", "ls-files", ".idea"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert not result.stdout.strip()
+
+def test_private_local_configs_are_never_tracked_by_git():
+    """本机可以存在私有覆盖文件，但它们绝不能进入 Git index。"""
+
+    if not (ROOT / ".git").exists():
+        pytest.skip("git metadata is not available in packaged artifact")
+
+    result = subprocess.run(
+        ["git", "ls-files", "config/ai.local.yaml", "config/env.*.private.yaml"],
         cwd=ROOT,
         check=True,
         capture_output=True,

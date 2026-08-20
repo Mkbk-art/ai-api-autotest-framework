@@ -309,6 +309,40 @@ class Assertions:
                     )
                 continue
 
+            if assert_type == "list_contains":
+                # 用于列表型响应的声明式成员匹配：selector 必须定位到 list，where 中所有字段
+                # 必须在同一个对象上同时满足。这样分页/查询类 Case 不需要为“找一条记录”写 Python。
+                if not isinstance(assert_value, Mapping):
+                    failures.append("list_contains requires a mapping")
+                    continue
+                selector = assert_value.get("selector")
+                expected_fields = assert_value.get("where")
+                if not isinstance(selector, str) or not selector:
+                    failures.append("list_contains.selector must be a non-empty string")
+                    continue
+                if not isinstance(expected_fields, Mapping) or not expected_fields:
+                    failures.append("list_contains.where must be a non-empty mapping")
+                    continue
+                actual = _selector_value(response_body, selector)
+                if actual is _MISSING:
+                    failures.append(f"list_contains {selector} actual=<missing>")
+                    continue
+                if not isinstance(actual, list):
+                    failures.append(
+                        f"list_contains {selector} expected list actual={type(actual).__name__}"
+                    )
+                    continue
+                matched = any(
+                    isinstance(item, Mapping)
+                    and all(item.get(key, _MISSING) == expected for key, expected in expected_fields.items())
+                    for item in actual
+                )
+                if not matched:
+                    failures.append(
+                        f"list_contains {selector} expected one item matching={dict(expected_fields)!r}"
+                    )
+                continue
+
             if assert_type in {"header_eq", "header_contains"}:
                 # Header 断言与 JSON selector 不同：先按不区分大小写的响应头名称取真实值。
                 header_name, expected = _pair(assert_value, assert_type)

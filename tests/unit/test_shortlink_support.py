@@ -88,26 +88,28 @@ def test_capture_created_link_context_normalizes_all_representations():
 
 
 def test_grouped_yaml_files_are_exactly_four_business_domains_and_hold_18_cases():
-    """短链接接入不再一个 Case 一个文件，仍保持 6/6/6 分层覆盖。"""
-    from core.case_loader import get_testcase_yaml
+    """短链接接入保持 4 个业务域 YAML，并保留 6/6/6 分层覆盖。"""
+    from core.case_registry import CaseRegistry
 
     yaml_dir = PROJECT_ROOT / "testcases" / "shortlink" / "yaml"
     files = sorted(path.name for path in yaml_dir.glob("*.yaml"))
     assert files == ["auth.yaml", "link.yaml", "redirect.yaml", "statistics.yaml"]
 
-    levels = []
-    for name in files:
-        for _, case in get_testcase_yaml(yaml_dir / name):
-            levels.append(case.get("level"))
+    registry = CaseRegistry.from_paths(sorted(yaml_dir.glob("*.yaml")))
+    levels = [case.level for case in registry.all_cases()]
     assert len(levels) == 18
     assert levels.count("smoke") == 6
     assert levels.count("core") == 6
     assert levels.count("regression") == 6
 
 
-def test_create_prerequisite_reuses_link_yaml_create_success_and_retries_only_b100000(monkeypatch):
-    """fixture Create 必须复用 YAML，并且只对已知 Sentinel 限流进行有限重试。"""
-    from testcases.shortlink.support import create_shortlink_from_yaml
+
+def test_create_prerequisite_reuses_v2_case_and_retries_only_b100000(monkeypatch):
+    """前置 Create 必须复用稳定 case_id，并且只对已知 Sentinel 限流做有限重试。"""
+    from core.case_executor import CaseExecutor
+    from core.case_registry import CaseRegistry
+    from core.context_provider import ContextProviderRegistry
+    from testcases.shortlink.support import create_shortlink_from_case
 
     runner = _Runner()
     runner.context.set("username", "demo-user", scope="scenario")
@@ -145,21 +147,31 @@ def test_create_prerequisite_reuses_link_yaml_create_success_and_retries_only_b1
             return self.responses.pop(0)
 
     runner.client = Client()
-    # 真实 ApiRunner 的两个公共解析方法用最小行为替代；重点验证 YAML 数据源和重试契约。
-    runner.resolve_dynamic = lambda value: {
-        **value,
-        "domain": "nurl.ink:8001",
-        "gid": "0Ly9iC",
-        "describe": "api-autotest-1",
-    }
+    runner.resolve_dynamic = lambda value: (
+        {
+            **value,
+            "domain": "nurl.ink:8001",
+            "gid": "0Ly9iC",
+            "describe": "api-autotest-1",
+        }
+        if isinstance(value, dict) and "originUrl" in value
+        else {"Content-Type": "application/json", "username": "demo-user", "token": "token-1"}
+    )
     runner._resolve_url = lambda raw: f"{runner.host}{raw}"
     monkeypatch.setattr("testcases.shortlink.support.time.sleep", lambda _: None)
 
-    created = create_shortlink_from_yaml(runner)
+    yaml_dir = PROJECT_ROOT / "testcases" / "shortlink" / "yaml"
+    registry = CaseRegistry.from_paths(sorted(yaml_dir.glob("*.yaml")))
+    providers = ContextProviderRegistry()
+    providers.register("shortlink.group", lambda _executor: None)
+
+    with CaseExecutor(runner=runner, registry=registry, providers=providers) as executor:
+        created = create_shortlink_from_case(executor)
 
     assert created["origin_url"] == "https://www.doubao.com/"
     assert len(runner.client.calls) == 2
     assert runner.client.calls[0][2]["json"]["originUrl"] == "https://www.doubao.com/"
+
 
 
 def test_auth_yaml_uses_environment_yaml_credentials_and_never_shortlink_env_variables():
@@ -187,3 +199,67 @@ def test_generic_framework_modules_do_not_contain_shortlink_business_tokens():
         text = path.read_text(encoding="utf-8")
         for token in forbidden:
             assert token not in text, f"business token {token!r} leaked into {path}"
+
+
+def test_shortlink_v2_cases_have_stable_ids_and_no_top_level_test_wrappers():
+    """真实 SUT 普通 Case 应由 Generic Runtime 收集，项目顶层不再维护参数化 wrapper。"""
+    from core.case_registry import CaseRegistry
+
+    shortlink_dir = PROJECT_ROOT / "testcases" / "shortlink"
+    assert not list(shortlink_dir.glob("test_*.py"))
+
+    registry = CaseRegistry.from_paths(sorted((shortlink_dir / "yaml").glob("*.yaml")))
+    cases = registry.all_cases()
+    assert len(cases) == 18
+    assert len({case.case_id for case in cases}) == 18
+    assert sum(case.level == "smoke" for case in cases) == 6
+    assert sum(case.level == "core" for case in cases) == 6
+    assert sum(case.level == "regression" for case in cases) == 6
+    assert sum(case.execution == "workflow" for case in cases) == 2
+
+
+def test_shortlink_project_registers_v2_context_providers_and_hooks():
+    """真实项目只通过公开 Registry 注册前置上下文/Hook，Core 不认识具体业务。"""
+    from core.context_provider import CaseHookRegistry, ContextProviderRegistry
+    from testcases.shortlink.context import register_extensions
+
+    providers = ContextProviderRegistry()
+    hooks = CaseHookRegistry()
+    register_extensions(providers, hooks)
+
+    for name in (
+        "shortlink.static",
+        "shortlink.authenticated",
+        "shortlink.group",
+        "shortlink.created",
+        "shortlink.recycled",
+        "shortlink.visited",
+    ):
+        assert callable(providers.get(name))
+
+    for name in (
+        "shortlink.capture_group",
+        "shortlink.capture_created",
+        "shortlink.cleanup_created",
+    ):
+        assert name in hooks._hooks
+
+
+def test_shortlink_complex_lifecycle_isolated_in_workflow_module():
+    """只有两条多状态 Regression 保留 Python Workflow，其余业务 Case 都由 Generic Runtime 执行。"""
+    from core.case_registry import CaseRegistry
+    from testcases.shortlink.workflows.test_storage_lifecycle import WORKFLOW_CASES
+
+    registry = CaseRegistry.from_paths(
+        sorted((PROJECT_ROOT / "testcases" / "shortlink" / "yaml").glob("*.yaml"))
+    )
+    expected = {
+        case.case_id
+        for case in registry.all_cases()
+        if case.execution == "workflow"
+    }
+    assert expected == {
+        "shortlink.link.recycle.db_lifecycle",
+        "shortlink.link.recycle.goto_cache_lifecycle",
+    }
+    assert {param.id for param in WORKFLOW_CASES} == expected

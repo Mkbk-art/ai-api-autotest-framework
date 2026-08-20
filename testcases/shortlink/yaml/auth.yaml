@@ -1,108 +1,101 @@
-# 短链接真实项目：认证业务域用例。
-# 这份 YAML 是“短链接项目适配数据”，不是框架核心配置；换项目时可以新增自己的业务域 YAML。
-# Smoke、Core、Regression 通过每个 Case 的 level 声明，Python 不再重复写 pytest marker。
-# tags 用于业务维度筛选；workflow 只告诉少量 Python 编排代码该 Case 属于哪个流程。
-- baseInfo:
-    # api_name 仅用于日志和报告展示，不参与真实路由。
+# Shortlink 真实 SUT 的声明式 Test Specification V2。
+# 本文件只属于第一个真实被测项目；通用框架不会读取或判断任何 shortlink 业务字段。
+# 普通 Case 由框架 Generic Runtime 自动收集；execution=workflow 的 Case 才进入 Python Workflow。
+# case id 是稳定机器主键，name 只负责报告展示；requires 只引用项目 Context Provider。
+version: 2
+cases:
+- id: shortlink.auth.login.success
+  name: 专用测试账号登录成功
+  level: smoke
+  tags:
+  - real
+  - shortlink
+  - auth
+  risks:
+  - authentication
+  request:
     api_name: 短链接用户登录
-    # url 使用相对路径，由通用 ApiRunner 与当前环境 api.host 拼接。
-    url: /api/short-link/admin/v1/user/login
-    # 登录接口的真实 HTTP 方法。
     method: POST
-    # header 描述接口协议要求；业务账号不放在 Header 中。
-    header:
-      # 请求体使用 JSON 编码。
+    path: /api/short-link/admin/v1/user/login
+    headers: &id001
       Content-Type: application/json
-  testCase:
-    # Smoke：验证本地环境 YAML 中配置的测试账号能够正常登录。
-    - case_name: 专用测试账号登录成功
-      # level 会由 CaseLoader 自动转换为 pytest.mark.smoke。
-      level: smoke
-      # tags 同样由 CaseLoader 转换为模块级 marker。
-      tags: [real, shortlink, auth]
-      # workflow 供 fixture 定位这条“登录成功”声明，避免复制请求参数。
-      workflow: login_success
-      # json 是真正发送给登录接口的业务请求体。
-      json:
-        # username 只从 env.shortlink-local.yaml 读取，后续本地修改无需终端 export。
-        username: ${config(shortlink,username)}
-        # password 同样来自环境 YAML；真实值不会写进测试 Python。
-        password: ${config(shortlink,password)}
-      # extract 在响应成功后把 token 写入 VariableContext。
-      extract:
-        # 后续 Group/Create Header 通过 ${token} 自动读取该运行时变量。
-        token: $.data.token
-      # validation 统一交给 AssertionEngine，不在 Python 重复业务断言。
-      validation:
-        # HTTP 层必须成功到达业务服务。
-        - status_code: 200
-        # 业务层 code=0 表示认证成功。
-        - eq: [$.code, "0"]
-        # 成功登录必须真实返回 token。
-        - exists: $.data.token
-
-    # Core：正确用户名 + 动态错误密码应被业务层拒绝。
-    - case_name: 正确用户名配合错误密码时登录应返回业务失败
-      # 负向核心场景归入 core，不污染 Smoke 主链。
-      level: core
-      # negative 表明“正确拒绝”才是本用例期望。
-      tags: [real, shortlink, auth, negative]
-      # workflow 让认证域 Python 仍可统一参数化执行。
-      workflow: login_invalid
-      # 请求结构与成功登录完全一致，只改变 password 这个测试变量。
-      json:
-        # 使用同一个真实测试用户名，避免把“用户不存在”误当成“密码错误”。
-        username: ${config(shortlink,username)}
-        # invalid_password() 由 DebugTalk 动态生成，与真实密码完全解耦。
-        password: ${invalid_password()}
-      # 失败契约仍由通用响应断言表达。
-      validation:
-        # 该项目的业务错误仍使用 HTTP 200 返回。
-        - status_code: 200
-        # 业务 code 必须不是成功值。
-        - ne: [$.code, "0"]
-        # 认证失败绝不能产生 token。
-        - not_exists: $.data.token
-
-    # Regression：同一次登录响应提取 token 后，再验证 Redis 登录态。
-    - case_name: 登录成功后 Redis Hash 应保存当前 token 且 TTL 有效
-      # 深层数据一致性验证归入 regression。
-      level: regression
-      # redis marker 允许后续单独执行缓存类用例。
-      tags: [real, shortlink, auth, redis]
-      # workflow 名只描述当前业务流程，不被 core/db 识别。
-      workflow: login_redis
-      # 登录请求仍复用环境 YAML 中同一份账号配置。
-      json:
-        # username 是当前项目适配参数。
-        username: ${config(shortlink,username)}
-        # password 是当前项目适配参数。
-        password: ${config(shortlink,password)}
-      # token 必须先从当前 HTTP Response 提取，再用于下面 Redis Hash field 断言。
-      extract:
-        # ApiRunner 会先 extract，再动态解析 validation，因此当前 token 可直接使用。
-        token: $.data.token
-      # 一组 validation 可以同时包含 HTTP 与 Redis 断言，体现统一 YAML 驱动。
-      validation:
-        # 登录请求本身必须成功。
-        - status_code: 200
-        # 业务 code 必须成功。
-        - eq: [$.code, "0"]
-        # login_redis_key 由短链接项目 adapter 根据“前缀 + username”生成。
-        - redis_hfield_exists:
-            # source 对应 config.data_sources.redis.default 命名数据源。
-            source: default
-            # key 是运行时上下文变量，通用 RedisClient 不知道它的业务含义。
-            key: ${login_redis_key}
-            # field 使用刚从当前响应提取出的 token。
-            field: ${token}
-        # Redis TTL 通过通用区间断言验证，不把过期机制写进 Python。
-        - redis_ttl_between:
-            # 继续使用同一个命名 Redis 数据源。
-            source: default
-            # 目标 Key 与上一条 Hash 断言一致。
-            key: ${login_redis_key}
-            # 最低 1 秒保证 Key 仍处于有效期。
-            min: 1
-            # 业务源码目标 TTL 为 30 分钟，这里只验证合理上界而不要求精确等于 1800。
-            max: 1800
+    json:
+      username: ${config(shortlink,username)}
+      password: ${config(shortlink,password)}
+  assertions:
+  - status_code: 200
+  - eq:
+    - $.code
+    - '0'
+  - exists: $.data.token
+  operation_id: shortlinkUserLogin
+  requires:
+  - shortlink.static
+  extract:
+    token: $.data.token
+- id: shortlink.auth.login.invalid_password
+  name: 正确用户名配合错误密码时登录应返回业务失败
+  level: core
+  tags:
+  - real
+  - shortlink
+  - auth
+  - negative
+  risks:
+  - authentication
+  - invalid_input
+  request:
+    api_name: 短链接用户登录
+    method: POST
+    path: /api/short-link/admin/v1/user/login
+    headers: *id001
+    json:
+      username: ${config(shortlink,username)}
+      password: ${invalid_password()}
+  assertions:
+  - status_code: 200
+  - ne:
+    - $.code
+    - '0'
+  - not_exists: $.data.token
+  operation_id: shortlinkUserLogin
+  requires:
+  - shortlink.static
+- id: shortlink.auth.login.redis_state
+  name: 登录成功后 Redis Hash 应保存当前 token 且 TTL 有效
+  level: regression
+  tags:
+  - real
+  - shortlink
+  - auth
+  - redis
+  risks:
+  - authentication
+  - cache_consistency
+  request:
+    api_name: 短链接用户登录
+    method: POST
+    path: /api/short-link/admin/v1/user/login
+    headers: *id001
+    json:
+      username: ${config(shortlink,username)}
+      password: ${config(shortlink,password)}
+  assertions:
+  - status_code: 200
+  - eq:
+    - $.code
+    - '0'
+  - redis_hfield_exists:
+      source: default
+      key: ${login_redis_key}
+      field: ${token}
+  - redis_ttl_between:
+      source: default
+      key: ${login_redis_key}
+      min: 1
+      max: 1800
+  operation_id: shortlinkUserLogin
+  requires:
+  - shortlink.static
+  extract:
+    token: $.data.token

@@ -280,3 +280,78 @@ def test_run_tests_temporarily_exposes_cli_env_file_to_pytest_runtime(monkeypatc
     assert observed["pytest_env_file"] == str(private_file.resolve())
     # CLI 显式覆盖只在本次运行期间生效，避免同一 Python 进程的下一次 run_tests 串用旧私有文件。
     assert "API_TEST_ENV_FILE" not in os.environ
+
+
+def test_generate_allure_html_executes_resolved_windows_cmd_via_comspec(monkeypatch, tmp_path):
+    """npm 安装的 allure.cmd 应由 Windows command processor 启动，而不是作为裸命令交给 CreateProcess。"""
+    import run as run_module
+
+    results = tmp_path / "allure-results"
+    report = tmp_path / "allure-report"
+    results.mkdir()
+    allure_cmd = r"C:\Users\tester\.npm-global\allure.cmd"
+    comspec = r"C:\Windows\System32\cmd.exe"
+    observed: dict[str, object] = {}
+
+    monkeypatch.setattr(run_module.shutil, "which", lambda name: allure_cmd if name == "allure" else None)
+    monkeypatch.setenv("COMSPEC", comspec)
+
+    def fake_run(command, *, check):
+        observed["command"] = command
+        observed["check"] = check
+
+    monkeypatch.setattr(run_module.subprocess, "run", fake_run)
+
+    assert run_module._generate_allure_html(results, report) is True
+    assert observed["command"] == [
+        comspec,
+        "/d",
+        "/c",
+        allure_cmd,
+        "generate",
+        str(results),
+        "-o",
+        str(report),
+        "--clean",
+    ]
+    assert observed["check"] is True
+
+
+def test_run_tests_preserves_pytest_exit_code_when_allure_process_cannot_start(monkeypatch, tmp_path):
+    """Allure HTML 是报告增强；CLI 启动失败不能覆盖已经通过的 Pytest 退出码。"""
+    import json
+    import run as run_module
+
+    def fake_load(self, env_name="test", env_file=None, cli_overrides=None):
+        return {
+            "api": {
+                "host": "http://127.0.0.1:1",
+                "timeout": 1,
+                "verify_ssl": False,
+                "use_mock": False,
+            },
+            "report": {"root_dir": str(tmp_path / "runs")},
+        }
+
+    monkeypatch.setattr(run_module.ConfigManager, "load", fake_load)
+    monkeypatch.setattr(run_module.pytest, "main", lambda args: 0)
+    monkeypatch.setattr(run_module, "_allure_plugin_available", lambda: True)
+    monkeypatch.setattr(
+        run_module,
+        "_generate_allure_html",
+        lambda results, report: (_ for _ in ()).throw(FileNotFoundError("allure launcher missing")),
+    )
+
+    exit_code = run_module.run_tests(
+        env_name="test",
+        level="regression",
+        run_id="allure-launch-failure",
+        junit_path=tmp_path / "junit.xml",
+    )
+
+    assert exit_code == 0
+    metadata = json.loads(
+        (tmp_path / "runs" / "allure-launch-failure" / "run.json").read_text(encoding="utf-8")
+    )
+    assert metadata["pytest_exit_code"] == 0
+    assert metadata["allure_html_generated"] is False

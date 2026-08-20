@@ -1,0 +1,47 @@
+# 受控 Mock Demo：接口调用声明式用例。
+version: 2
+cases:
+  - id: demo.interface.call.success
+    name: 正常调用接口
+    operation_id: demoCallInterface
+    level: regression
+    tags: [demo, interface]
+    risks: [state_transition]
+    requires: [demo.published_interface]
+    request:
+      api_name: 调用已发布接口
+      method: POST
+      path: /api/v1/interface/call
+      headers:
+        Content-Type: application/json;charset=UTF-8
+        Authorization: Bearer ${access_token}
+      json:
+        interface_id: ${interface_id}
+        params:
+          key: value
+    assertions:
+      - contains:
+          status_code: 200
+      - eq:
+          call_status: success
+
+  - id: demo.interface.call.unauthorized
+    name: 调用-鉴权失败
+    operation_id: demoCallInterface
+    level: regression
+    tags: [demo, interface, negative]
+    risks: [authorization]
+    requires: [demo.published_interface]
+    request:
+      api_name: 调用已发布接口
+      method: POST
+      path: /api/v1/interface/call
+      headers:
+        Content-Type: application/json;charset=UTF-8
+        Authorization: Bearer invalid_token
+      json:
+        interface_id: ${interface_id}
+        params: {}
+    assertions:
+      - contains:
+          status_code: 401

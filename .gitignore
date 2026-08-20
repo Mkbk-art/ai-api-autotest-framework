@@ -20,3 +20,6 @@ extract.yaml
 
 # AI 私有本机覆盖文件可能包含真实 Provider Key，默认禁止提交。
 config/ai.local.yaml
+
+# 真实 SUT 账号、数据库密码等私有环境覆盖文件；通过 run.py --env-file 使用。
+config/env.*.private.yaml

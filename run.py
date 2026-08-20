@@ -115,12 +115,23 @@ def _allure_plugin_available() -> bool:
 
 def _generate_allure_html(results_dir: Path, report_dir: Path) -> bool:
     """在 Allure CLI 可用时生成 HTML；缺少 CLI 时返回 False 而不影响测试结论。"""
-    if not results_dir.exists() or shutil.which("allure") is None:
+    allure_executable = shutil.which("allure")
+    if not results_dir.exists() or allure_executable is None:
         return False
-    subprocess.run(
-        ["allure", "generate", str(results_dir), "-o", str(report_dir), "--clean"],
-        check=True,
-    )
+
+    command = [
+        allure_executable,
+        "generate",
+        str(results_dir),
+        "-o",
+        str(report_dir),
+        "--clean",
+    ]
+    # npm 在 Windows 上安装的是 allure.cmd；CreateProcess 不能把 .cmd 当原生可执行文件启动。
+    if Path(allure_executable).suffix.lower() in {".cmd", ".bat"}:
+        command = [os.environ.get("COMSPEC", "cmd.exe"), "/d", "/c", *command]
+
+    subprocess.run(command, check=True)
     return True
 
 
@@ -188,7 +199,7 @@ def run_tests(
         if allure_enabled and not collect_only:
             try:
                 html_generated = _generate_allure_html(results, report)
-            except subprocess.CalledProcessError:
+            except (subprocess.CalledProcessError, OSError):
                 # HTML 展示属于报告增强，不覆盖 Pytest 的真实测试退出码。
                 html_generated = False
 

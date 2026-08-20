@@ -1,109 +1,108 @@
-# 短链接真实项目：Redirect 业务域用例。
-# 正常跳转、notfound、回收态、Redis UV/UIP 都归并到同一 YAML，避免“一 Case 一文件”。
-# 具体短链接域名属于被测项目数据，因此保留在这里；通用 core 不知道 nurl.ink 的存在。
-- baseInfo:
-    # api_name 只用于测试报告定位“动态短链访问”。
+# Shortlink 真实 SUT 的声明式 Test Specification V2。
+# 本文件只属于第一个真实被测项目；通用框架不会读取或判断任何 shortlink 业务字段。
+# 普通 Case 由框架 Generic Runtime 自动收集；execution=workflow 的 Case 才进入 Python Workflow。
+# case id 是稳定机器主键，name 只负责报告展示；requires 只引用项目 Context Provider。
+version: 2
+cases:
+- id: shortlink.redirect.success
+  name: 新创建短链接应 302 跳转到创建时的原始链接
+  level: smoke
+  tags:
+  - real
+  - shortlink
+  - redirect
+  risks:
+  - state_transition
+  request:
     api_name: 访问动态短链接
-    # short_uri 来自 Create 响应并存入 VariableContext；这里真正体现跨接口 YAML 变量传递。
+    method: GET
     url: http://nurl.ink:8001/${short_uri}
-    # 浏览器访问短链使用 GET。
+    request_options: &id001
+      allow_redirects: false
+  assertions:
+  - status_code: 302
+  - header_eq:
+    - Location
+    - ${origin_url}
+  operation_id: shortlinkRedirect
+  requires:
+  - shortlink.created
+- id: shortlink.redirect.recycled
+  name: 回收站中的短链接不应继续跳转原始链接
+  level: core
+  tags:
+  - real
+  - shortlink
+  - redirect
+  - recycle
+  - negative
+  risks:
+  - state_transition
+  request:
+    api_name: 访问动态短链接
     method: GET
-  testCase:
-    # Smoke：第一跳必须是 302，且 Location 指向本次真实创建的 origin_url。
-    - case_name: 新创建短链接应 302 跳转到创建时的原始链接
-      # 该场景属于最小可用主链。
-      level: smoke
-      # redirect marker 允许按业务域筛选。
-      tags: [real, shortlink, redirect]
-      # workflow 告诉 Python 这条 Case 需要“已创建短链”前置。
-      workflow: redirect_success
-      # request_options 描述 Requests 客户端行为，而不是业务参数。
-      request_options: &no_follow
-        # 必须关闭自动跟随，否则测试看到的是目标网站 200 而不是服务端第一跳 302。
-        allow_redirects: false
-      # 第一跳契约完全通过 YAML validation 表达。
-      validation:
-        # 短链接服务第一跳应返回 HTTP 302。
-        - status_code: 302
-        # Location 与 Create 实际返回的 origin_url 精确一致，不写死某个目标站点。
-        - header_eq: [Location, "${origin_url}"]
-
-    # Core：短链进入回收站后不能继续跳转原始地址。
-    - case_name: 回收站中的短链接不应继续跳转原始链接
-      # 状态迁移后的异常访问属于 core。
-      level: core
-      # recycle/negative 描述业务标签，不改变执行引擎。
-      tags: [real, shortlink, redirect, recycle, negative]
-      # Python 只负责 Create -> Save -> Redirect -> Remove 的生命周期顺序。
-      workflow: redirect_recycled
-      # 复用“不自动跟随 302”的请求选项。
-      request_options: *no_follow
-      # Redirect 结果仍然使用通用 Header 断言。
-      validation:
-        # 回收态仍由服务端发出 302。
-        - status_code: 302
-        # Servlet 可能返回绝对或相对 Location，因此只约束关键 notfound 路径片段。
-        - header_contains: [Location, "/page/notfound"]
-
-    # Regression：真实访问后验证 Redis UV/UIP 去重 Set 已产生状态。
-    - case_name: 真实短链访问后 Redis UV 和 UIP Set 应记录成员
-      # 数据层一致性统一归入 regression。
-      level: regression
-      # redis/statistics marker 说明该用例验证统计缓存状态。
-      tags: [real, shortlink, redirect, redis, statistics]
-      # workflow 表示需要先创建一条可访问的真实短链。
-      workflow: redirect_redis
-      # 同样只观察第一跳。
-      request_options: *no_follow
-      # HTTP 行为先通过常规 validation 验证。
-      validation:
-        # 第一跳必须为 302。
-        - status_code: 302
-        # 第一跳仍应指向真实 origin_url。
-        - header_eq: [Location, "${origin_url}"]
-      # post_validation 是多步骤流程完成 HTTP 请求后执行的数据源断言组。
-      post_validation:
-        # UV Key 的具体生成规则属于短链接 adapter；通用 RedisClient 只看到最终字符串 Key。
-        - redis_scard_gte:
-            # 使用默认 Redis 命名数据源。
-            source: default
-            # uv_redis_key 来自运行时项目适配上下文。
-            key: ${uv_redis_key}
-            # 至少一个成员说明本次访问产生了 UV 去重记录。
-            expected: 1
-        # UIP 同样使用通用 Set cardinality 断言。
-        - redis_scard_gte:
-            # 使用同一 Redis 数据源。
-            source: default
-            # uip_redis_key 由项目 adapter 计算。
-            key: ${uip_redis_key}
-            # 至少存在一个 IP 去重成员。
-            expected: 1
-
-# 不存在短码不需要登录或 Create 前置，因此单独声明一个 baseInfo。
-- baseInfo:
-    # 报告中明确这是 notfound 场景。
+    url: http://nurl.ink:8001/${short_uri}
+    request_options: *id001
+  assertions:
+  - status_code: 302
+  - header_contains:
+    - Location
+    - /page/notfound
+  operation_id: shortlinkRedirect
+  requires:
+  - shortlink.recycled
+- id: shortlink.redirect.redis_state
+  name: 真实短链访问后 Redis UV 和 UIP Set 应记录成员
+  level: regression
+  tags:
+  - real
+  - shortlink
+  - redirect
+  - redis
+  - statistics
+  risks:
+  - cache_consistency
+  request:
+    api_name: 访问动态短链接
+    method: GET
+    url: http://nurl.ink:8001/${short_uri}
+    request_options: *id001
+  assertions:
+  - status_code: 302
+  - header_eq:
+    - Location
+    - ${origin_url}
+  - redis_scard_gte:
+      source: default
+      key: ${uv_redis_key}
+      expected: 1
+  - redis_scard_gte:
+      source: default
+      key: ${uip_redis_key}
+      expected: 1
+  operation_id: shortlinkRedirect
+  requires:
+  - shortlink.created
+- id: shortlink.redirect.notfound
+  name: 不存在 shortUri 应跳转到 notfound 页面
+  level: core
+  tags:
+  - real
+  - shortlink
+  - redirect
+  - notfound
+  - negative
+  risks:
+  - invalid_input
+  request:
     api_name: 访问不存在的短链接
-    # random_string() 每次生成不同短码，降低误命中历史数据的概率。
-    url: http://nurl.ink:8001/not-exists-${random_string(24)}
-    # 短链访问仍使用 GET。
     method: GET
-  testCase:
-    # Core：不存在的 shortUri 应进入业务 notfound 页面。
-    - case_name: 不存在 shortUri 应跳转到 notfound 页面
-      # 该异常边界归入 core。
-      level: core
-      # notfound/negative 标签说明预期结果。
-      tags: [real, shortlink, redirect, notfound, negative]
-      # workflow 不需要任何前置数据。
-      workflow: redirect_notfound
-      # 禁止自动跟随错误页跳转，直接验证第一跳。
-      request_options:
-        # Requests 默认跟随重定向，因此显式关闭。
-        allow_redirects: false
-      # 业务契约由统一断言引擎执行。
-      validation:
-        # 第一跳仍是 302。
-        - status_code: 302
-        # Location 必须包含 notfound 路径。
-        - header_contains: [Location, "/page/notfound"]
+    url: http://nurl.ink:8001/not-exists-${random_string(24)}
+    request_options:
+      allow_redirects: false
+  assertions:
+  - status_code: 302
+  - header_contains:
+    - Location
+    - /page/notfound
+  operation_id: shortlinkRedirect

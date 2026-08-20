@@ -1,0 +1,48 @@
+# 受控 Mock Demo：接口发布声明式用例。
+version: 2
+cases:
+  - id: demo.interface.publish.success
+    name: 正常发布接口
+    operation_id: demoPublishInterface
+    level: core
+    tags: [demo, interface]
+    risks: [state_transition]
+    requires: [demo.authenticated]
+    request:
+      api_name: 发布新接口
+      method: POST
+      path: /api/v1/interface/publish
+      headers:
+        Content-Type: application/json;charset=UTF-8
+        Authorization: Bearer ${access_token}
+      json:
+        name: auto_test_api_${random_string(6)}
+        method: GET
+        path: /api/v1/demo/test
+    extract:
+      interface_id: $.data.interfaceId
+    assertions:
+      - contains:
+          status_code: 200
+      - eq:
+          success: true
+
+  - id: demo.interface.publish.unauthorized
+    name: 发布接口-未登录
+    operation_id: demoPublishInterface
+    level: core
+    tags: [demo, interface, negative]
+    risks: [authorization]
+    request:
+      api_name: 发布新接口
+      method: POST
+      path: /api/v1/interface/publish
+      headers:
+        Content-Type: application/json;charset=UTF-8
+      json:
+        name: no_token
+        method: GET
+        path: /api/v1/demo/no-token
+    assertions:
+      - contains:
+          status_code: 401

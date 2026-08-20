@@ -1,13 +1,14 @@
 """所有被测项目共享的 Pytest 运行夹具与 collection glue。
 
 这里仅保存框架级 fixture：环境配置、Mock Server、ApiRunner 和 VariableContext。
-具体项目的登录、前置资源、清理逻辑必须放在各自 ``testcases/<suite>/conftest.py``；
-当前要收集哪个 suite 也由 ``env.<name>.yaml -> test_selection.include_suites`` 声明。
+具体项目的登录、前置资源、清理逻辑放在各自 ``testcases/<suite>/context.py``，复杂控制流
+放在 ``workflows/``；当前要收集哪个 suite 由 ``env.<name>.yaml -> test_selection.include_suites`` 声明。
 因此新增真实项目时只增加环境 YAML 和测试目录，不需要修改本公共文件。
 """
 from __future__ import annotations
 
 # API_TEST_ENV 由 run.py 设置；直接运行 pytest 时默认使用 test 环境。
+import importlib
 import os
 # Path 用于扫描各项目 YAML 并在 collection 前自动注册它们声明的 markers。
 from pathlib import Path
@@ -18,7 +19,11 @@ import pytest
 
 # ApiRunner 是所有项目共享的 YAML 请求/提取/断言执行入口。
 from core.api_runner import ApiRunner
-# Marker 从 YAML 自动发现，避免每接入一个项目都编辑公共 pytest.ini。
+from core.case_executor import CaseExecutor
+from core.case_registry import CaseRegistry
+from core.case_spec import CaseSpecError, load_case_specs
+from core.context_provider import CaseHookRegistry, ContextProviderRegistry
+# 旧版 YAML Marker Loader 仅在 Shortlink V1 迁移期间提供兼容；V2 直接读取 CaseSpec。
 from core.case_loader import get_testcase_marker_names
 # ConfigManager 负责合并 config.yaml 与当前命名环境 YAML。
 from core.config_manager import ConfigManager
@@ -77,6 +82,51 @@ def _suite_name_from_path(collection_path: Path) -> str | None:
     return relative.parts[0]
 
 
+def _selected_project_case_paths(config) -> list[Path]:
+    """返回当前环境选择项目下的 V2 YAML 路径。"""
+    included = _include_suites(config)
+    roots: list[Path]
+    if included:
+        roots = [PROJECT_ROOT / "testcases" / name / "yaml" for name in sorted(included)]
+    else:
+        roots = [path / "yaml" for path in sorted((PROJECT_ROOT / "testcases").iterdir()) if path.is_dir()]
+
+    paths: list[Path] = []
+    for root in roots:
+        if not root.is_dir():
+            continue
+        for yaml_path in sorted(root.glob("*.yaml")):
+            try:
+                load_case_specs(yaml_path)
+            except CaseSpecError:
+                # 迁移期允许项目目录中暂时存在 V1；Generic Runtime 只执行已经升级到 V2 的文件。
+                continue
+            paths.append(yaml_path)
+    return paths
+
+
+def _case_registry(config) -> CaseRegistry:
+    """为当前环境缓存声明式 CaseRegistry。"""
+    cached = getattr(config, "_api_autotest_case_registry", None)
+    if isinstance(cached, CaseRegistry):
+        return cached
+    registry = CaseRegistry.from_paths(_selected_project_case_paths(config))
+    setattr(config, "_api_autotest_case_registry", registry)
+    return registry
+
+
+def pytest_generate_tests(metafunc) -> None:
+    """把当前项目全部 declarative Case 注入唯一 Generic Pytest Runtime。"""
+    if "yaml_case" not in metafunc.fixturenames:
+        return
+    registry = _case_registry(metafunc.config)
+    params = []
+    for case in registry.declarative_cases():
+        marks = [getattr(pytest.mark, name) for name in case.marker_names]
+        params.append(pytest.param(case, marks=marks, id=case.case_id))
+    metafunc.parametrize("yaml_case", params)
+
+
 def pytest_configure(config) -> None:
     """在严格 marker 校验前，从全部项目 YAML 动态注册 level/tags。"""
     # 先缓存环境配置，后续 ignore_collect 与 fixtures 使用同一命名环境来源。
@@ -85,8 +135,14 @@ def pytest_configure(config) -> None:
     yaml_files = sorted((PROJECT_ROOT / "testcases").glob("**/*.yaml"))
     marker_names: set[str] = set()
     for yaml_path in yaml_files:
-        # 只有符合框架 baseInfo/testCase 结构的文件才会进入项目用例目录；结构错误应立即失败。
-        marker_names.update(get_testcase_marker_names(yaml_path))
+        try:
+            specs = load_case_specs(yaml_path)
+        except CaseSpecError:
+            # V1 只作为迁移兼容；完成迁移后该分支可删除。
+            marker_names.update(get_testcase_marker_names(yaml_path))
+        else:
+            for case in specs:
+                marker_names.update(case.marker_names)
     # addinivalue_line 是 Pytest 官方动态 marker 注册入口，可继续配合 --strict-markers。
     for name in sorted(marker_names):
         config.addinivalue_line("markers", f"{name}: marker declared by YAML testcase metadata")
@@ -104,6 +160,44 @@ def pytest_ignore_collect(collection_path, config):
         return None
     # 当前目录不在环境 YAML 白名单时让 Pytest 跳过整个 suite。
     return suite_name not in included
+
+
+@pytest.fixture(scope="session")
+def case_registry(request):
+    """返回当前环境声明式 Case 的统一 Registry。"""
+    return _case_registry(request.config)
+
+
+@pytest.fixture(scope="session")
+def project_extensions(request):
+    """按环境选择的项目加载 Context Provider 与 Case Hook。"""
+    providers = ContextProviderRegistry()
+    hooks = CaseHookRegistry()
+    for project_name in sorted(_include_suites(request.config)):
+        module_name = f"testcases.{project_name}.context"
+        try:
+            module = importlib.import_module(module_name)
+        except ModuleNotFoundError as exc:
+            if exc.name == module_name:
+                continue
+            raise
+        register = getattr(module, "register_extensions", None)
+        if register is not None:
+            register(providers, hooks)
+    return providers, hooks
+
+
+@pytest.fixture
+def case_executor(request_base, case_registry, project_extensions):
+    """为当前 Pytest Item 创建统一 CaseExecutor，并保证 Provider cleanup 被执行。"""
+    providers, hooks = project_extensions
+    with CaseExecutor(
+        runner=request_base,
+        registry=case_registry,
+        providers=providers,
+        hooks=hooks,
+    ) as executor:
+        yield executor
 
 
 @pytest.fixture

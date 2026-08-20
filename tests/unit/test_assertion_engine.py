@@ -183,3 +183,48 @@ def test_redis_hash_failure_does_not_echo_dynamic_field_value(response_body):
     message = str(exc_info.value)
     assert "redis_hfield_exists" in message
     assert secret_field not in message
+
+
+def test_list_contains_matches_one_object_by_multiple_expected_fields():
+    """列表响应可以声明式验证“至少有一个对象同时满足多字段期望”。"""
+    assertions = Assertions()
+    assertions.assert_all(
+        [
+            {
+                "list_contains": {
+                    "selector": "$.data.records",
+                    "where": {
+                        "fullShortUrl": "nurl.ink/a1",
+                        "gid": "g1",
+                        "enableStatus": 0,
+                    },
+                }
+            }
+        ],
+        {
+            "data": {
+                "records": [
+                    {"fullShortUrl": "nurl.ink/other", "gid": "g1", "enableStatus": 0},
+                    {"fullShortUrl": "nurl.ink/a1", "gid": "g1", "enableStatus": 0},
+                ]
+            }
+        },
+        200,
+    )
+
+
+def test_list_contains_fails_when_no_single_object_matches_all_fields():
+    assertions = Assertions()
+    with pytest.raises(AssertionError, match="list_contains"):
+        assertions.assert_all(
+            [
+                {
+                    "list_contains": {
+                        "selector": "$.data.records",
+                        "where": {"fullShortUrl": "nurl.ink/a1", "gid": "g1"},
+                    }
+                }
+            ],
+            {"data": {"records": [{"fullShortUrl": "nurl.ink/a1", "gid": "other"}]}},
+            200,
+        )

@@ -80,9 +80,19 @@ def test_shortlink_smoke_level_remains_six_happy_path_cases():
     assert result.returncode == 0, result.stdout + result.stderr
     # 总集合保持 18 条；marker 已从每个 YAML Case 的 level 元数据自动转换。
     assert "collected 18 items / 12 deselected / 6 selected" in result.stdout, result.stdout
-    # 短链接项目按业务域合并 Python 入口，Smoke 不再依赖“一 Case 一文件”的旧结构。
-    for module_name in ("test_auth.py", "test_link.py", "test_redirect.py", "test_statistics.py"):
-        assert module_name in result.stdout
+    # 六条成功主链全部由唯一 Generic Runtime 收集，不再出现项目级普通 test_xx.py wrapper。
+    assert "<Module test_yaml_cases.py>" in result.stdout
+    for case_id in (
+        "shortlink.auth.login.success",
+        "shortlink.group.query.success",
+        "shortlink.link.create.success",
+        "shortlink.link.page.contains_created",
+        "shortlink.redirect.success",
+        "shortlink.statistics.query.success",
+    ):
+        assert case_id in result.stdout
+    assert "test_auth.py" not in result.stdout
+    assert "test_link.py" not in result.stdout
 
 
 def test_shortlink_core_level_collects_six_yaml_negative_cases():
@@ -90,11 +100,17 @@ def test_shortlink_core_level_collects_six_yaml_negative_cases():
     result = _collect_for_environment("shortlink-local", "collect-shortlink-core", level="core")
     assert result.returncode == 0, result.stdout + result.stderr
     assert "collected 18 items / 12 deselected / 6 selected" in result.stdout, result.stdout
-    # Core 的六条异常现在归并到认证、链接、跳转三个业务域入口中。
-    for module_name in ("test_auth.py", "test_link.py", "test_redirect.py"):
-        assert module_name in result.stdout
-    # Statistics 当前没有 Core 异常 Case，因此不应该为了文件数量人为混入本层。
-    assert "<Module test_statistics.py>" not in result.stdout
+    # Core 六条异常同样全部是声明式 Case，不需要任何项目 Python wrapper。
+    for case_id in (
+        "shortlink.auth.login.invalid_password",
+        "shortlink.group.query.unauthorized",
+        "shortlink.link.create.invalid_url",
+        "shortlink.link.create.unauthorized",
+        "shortlink.redirect.recycled",
+        "shortlink.redirect.notfound",
+    ):
+        assert case_id in result.stdout
+    assert "test_storage_lifecycle.py" not in result.stdout
 
 
 def test_shortlink_regression_level_collects_six_yaml_data_source_cases():
@@ -102,8 +118,16 @@ def test_shortlink_regression_level_collects_six_yaml_data_source_cases():
     result = _collect_for_environment("shortlink-local", "collect-shortlink-regression", level="regression")
     assert result.returncode == 0, result.stdout + result.stderr
     assert "collected 18 items / 12 deselected / 6 selected" in result.stdout, result.stdout
-    # 数据源断言分布在真实业务域 YAML 中，而不是另建 Stage5 专用测试脚本。
-    for module_name in ("test_auth.py", "test_link.py", "test_redirect.py", "test_statistics.py"):
-        assert module_name in result.stdout
+    # Regression 由 4 条声明式数据一致性 Case + 2 条真正复杂的 Python Workflow 组成。
+    for case_id in (
+        "shortlink.auth.login.redis_state",
+        "shortlink.link.create.db_persistence",
+        "shortlink.redirect.redis_state",
+        "shortlink.statistics.db_persistence",
+        "shortlink.link.recycle.db_lifecycle",
+        "shortlink.link.recycle.goto_cache_lifecycle",
+    ):
+        assert case_id in result.stdout
+    assert "<Module test_storage_lifecycle.py>" in result.stdout
     assert "test_stage5_mysql.py" not in result.stdout
     assert "test_stage5_redis.py" not in result.stdout

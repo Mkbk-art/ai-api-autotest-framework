@@ -1,33 +1,32 @@
-"""YAML 用例路径、结构校验和加载数量的单元测试。
-
-本模块用于保护已验证框架行为，防止后续重构引入回归。
-"""
+"""YAML V1 兼容 Loader 与 V2 Test Specification 资产边界测试。"""
 from pathlib import Path
-import runpy
 
 import pytest
 import yaml
 
 from core.case_loader import get_testcase_yaml
+from core.case_spec import load_case_specs
 
 
 @pytest.mark.parametrize(
-    "module_name,yaml_name",
+    "yaml_name,expected_count",
     [
-        ("test_login.py", "login.yaml"),
-        ("test_publish_api.py", "publish_api.yaml"),
-        ("test_call_api.py", "call_api.yaml"),
+        ("login.yaml", 2),
+        ("publish_api.yaml", 2),
+        ("call_api.yaml", 2),
     ],
 )
-def test_test_modules_reference_existing_yaml_files(module_name, yaml_name):
-    module_path = Path("testcases/demo") / module_name
-    namespace = runpy.run_path(str(module_path), run_name=f"path_check_{module_name}")
-    declared = Path(namespace["YAML_FILE"])
-    assert declared.is_file(), f"{module_name} points to missing YAML: {declared}"
-    assert declared.name == yaml_name
+def test_demo_v2_yaml_files_are_directly_executable_without_python_wrappers(yaml_name, expected_count):
+    """Demo 普通场景应只保留 V2 YAML，不再依赖同名 ``test_xx.py`` 参数化壳。"""
+    demo_dir = Path("testcases/demo")
+    path = demo_dir / "yaml" / yaml_name
+    assert path.is_file()
+    assert len(load_case_specs(path)) == expected_count
+    assert not list(demo_dir.glob("test_*.py"))
 
 
 def test_missing_yaml_file_raises_file_not_found(tmp_path):
+    """旧 V1 Loader 在兼容期仍应对缺失文件给出明确错误。"""
     missing = tmp_path / "missing.yaml"
     with pytest.raises(FileNotFoundError, match="missing.yaml"):
         get_testcase_yaml(missing)
@@ -48,6 +47,7 @@ def test_missing_testcase_list_raises_value_error(tmp_path):
 
 
 def test_yaml_loader_returns_every_case(tmp_path):
+    """保留 V1 Loader 的最小回归，迁移期不会破坏外部已有旧 Case。"""
     path = tmp_path / "valid.yaml"
     path.write_text(
         yaml.safe_dump(
@@ -65,88 +65,49 @@ def test_yaml_loader_returns_every_case(tmp_path):
     assert [case[1]["case_name"] for case in cases] == ["a", "b"]
 
 
-@pytest.mark.parametrize(
-    "module_name,yaml_name",
-    [
-        ("test_auth.py", "auth.yaml"),
-        ("test_link.py", "link.yaml"),
-        ("test_redirect.py", "redirect.yaml"),
-        ("test_statistics.py", "statistics.yaml"),
-    ],
-)
-def test_real_shortlink_modules_reference_grouped_yaml_files(module_name, yaml_name):
-    """真实项目按业务域保持 4 个 Python 入口 + 4 个 YAML，而不是一个 Case 一个文件。"""
-    module_path = Path("testcases/shortlink") / module_name
-    namespace = runpy.run_path(str(module_path), run_name=f"real_path_check_{module_name}")
-    declared = Path(namespace["YAML_FILE"])
-    assert declared.is_file(), f"{module_name} points to missing YAML: {declared}"
-    assert declared.name == yaml_name
+def test_real_shortlink_v2_assets_are_four_grouped_yaml_files_without_ordinary_wrappers():
+    """第一个真实 SUT 只维护 4 个业务域 YAML；普通 Case 不再维护 Python wrapper。"""
+    shortlink_dir = Path("testcases/shortlink")
+    yaml_dir = shortlink_dir / "yaml"
+    files = sorted(path.name for path in yaml_dir.glob("*.yaml"))
+    assert files == ["auth.yaml", "link.yaml", "redirect.yaml", "statistics.yaml"]
+    assert not list(shortlink_dir.glob("test_*.py"))
+    assert sum(len(load_case_specs(yaml_dir / name)) for name in files) == 18
 
 
-def test_yaml_case_metadata_becomes_pytest_marks_and_supports_workflow_filter(tmp_path):
-    """level/tags/workflow 应由 YAML 驱动 Pytest 参数，而不是每个 Python Case 重复装饰器。"""
-    from core.case_loader import get_testcase_params
-
+def test_v2_case_metadata_exposes_level_tags_and_stable_ids(tmp_path):
+    """V2 CaseSpec 将 level/tags/id 提升为结构化资产，Pytest Runtime 不再读取 Python 装饰器。"""
     path = tmp_path / "cases.yaml"
     path.write_text(
         yaml.safe_dump(
-            [
-                {
-                    "baseInfo": {"url": "/x", "method": "GET"},
-                    "testCase": [
-                        {
-                            "case_name": "smoke case",
-                            "level": "smoke",
-                            "tags": ["auth"],
-                            "workflow": "direct",
-                        },
-                        {
-                            "case_name": "core case",
-                            "level": "core",
-                            "tags": ["negative"],
-                            "workflow": "other",
-                        },
-                    ],
-                }
-            ],
+            {
+                "version": 2,
+                "cases": [
+                    {
+                        "id": "orders.query.success",
+                        "name": "query order",
+                        "level": "smoke",
+                        "tags": ["order", "database"],
+                        "operation_id": "queryOrder",
+                        "request": {"method": "GET", "path": "/orders/1"},
+                        "assertions": [{"status_code": 200}],
+                    }
+                ],
+            },
             allow_unicode=True,
+            sort_keys=False,
         ),
         encoding="utf-8",
     )
 
-    params = get_testcase_params(path, workflows={"direct"})
-    assert len(params) == 1
-    assert params[0].id == "smoke case"
-    mark_names = {mark.name for mark in params[0].marks}
-    assert mark_names == {"smoke", "auth"}
-
-
-def test_yaml_marker_names_can_be_discovered_before_case_collection(tmp_path):
-    """框架应能从 YAML level/tags 自动发现 marker，新项目不需要改 pytest.ini 注册业务标签。"""
-    from core.case_loader import get_testcase_marker_names
-
-    path = tmp_path / "domain.yaml"
-    path.write_text(
-        yaml.safe_dump(
-            [
-                {
-                    "baseInfo": {"url": "/orders", "method": "GET"},
-                    "testCase": [
-                        {"case_name": "a", "level": "smoke", "tags": ["order", "database"]},
-                        {"case_name": "b", "level": "core", "tags": ["negative", "order"]},
-                    ],
-                }
-            ],
-            allow_unicode=True,
-        ),
-        encoding="utf-8",
-    )
-
-    assert get_testcase_marker_names(path) == {"smoke", "core", "order", "database", "negative"}
+    case = load_case_specs(path)[0]
+    assert case.case_id == "orders.query.success"
+    assert case.operation_id == "queryOrder"
+    assert case.marker_names == ("smoke", "order", "database")
 
 
 def test_shared_pytest_glue_does_not_hardcode_demo_or_real_project_suite_names():
-    """公共 conftest 应从环境 YAML 选择 suite，而不是写死当前真实项目/示例项目目录名。"""
+    """公共 conftest 应根据环境 YAML 动态加载项目，而不是写死当前两个示例项目。"""
     source = Path("conftest.py").read_text(encoding="utf-8").lower()
     assert "shortlink-local" not in source
     assert '"shortlink"' not in source

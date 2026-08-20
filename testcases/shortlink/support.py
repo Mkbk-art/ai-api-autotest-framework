@@ -14,24 +14,10 @@ from typing import Any
 # urlsplit 用于把 Create 返回的绝对短链拆成 Host+Path 与 short_uri 两种业务表示。
 from urllib.parse import urlsplit
 
-# 通用 YAML Loader 只负责读取结构；support 再按当前项目 workflow 选择 Case。
-from core.case_loader import get_testcase_yaml
-# PROJECT_ROOT 统一解决 Windows/Linux 项目根路径差异。
-from utils.project_paths import PROJECT_ROOT
+# CaseExecutor/CaseRegistry 负责统一 V2 Case 查找；项目 helper 不再按旧 workflow 字段扫描 YAML。
+from core.case_executor import CaseExecutor
 # Java HASH_MOD 计算是通用工具，表名前缀仍属于当前项目配置。
 from utils.sharding import java_hash_mod
-
-
-# 当前真实 SUT 的四个业务域 YAML 与 Python 入口放在同一个项目目录下，便于整体迁移/删除。
-SHORTLINK_DIR = PROJECT_ROOT / "testcases" / "shortlink"
-# 认证域：登录成功、错误密码、Redis 登录态。
-AUTH_YAML_PATH = SHORTLINK_DIR / "yaml" / "auth.yaml"
-# 链接域：Group/Create/Page/Recycle 及对应存储一致性。
-LINK_YAML_PATH = SHORTLINK_DIR / "yaml" / "link.yaml"
-# 跳转域：正常、notfound、回收态及 Redis UV/UIP。
-REDIRECT_YAML_PATH = SHORTLINK_DIR / "yaml" / "redirect.yaml"
-# 统计域：异步 Stats API 与 MySQL 最终持久化。
-STATISTICS_YAML_PATH = SHORTLINK_DIR / "yaml" / "statistics.yaml"
 
 
 def _project_config(request_base: Any) -> dict[str, Any]:
@@ -45,23 +31,6 @@ def _project_config(request_base: Any) -> dict[str, Any]:
         raise RuntimeError("Missing shortlink project config in current environment YAML")
     # 返回项目适配字典；core/db 永远不会调用本函数。
     return values
-
-
-def shortlink_case(path: Any, workflow: str) -> tuple[dict[str, Any], dict[str, Any]]:
-    """按 YAML ``workflow`` 读取唯一 Case，供 fixture/复杂流程复用同一声明源。"""
-    # 读取完整业务域 YAML，再只筛选指定 workflow；这样前置 fixture 与正式用例共用同一 Case。
-    matches = [
-        (base_info, test_case)
-        for base_info, test_case in get_testcase_yaml(path)
-        if test_case.get("workflow") == workflow
-    ]
-    # workflow 在同一 YAML 内必须唯一，否则 fixture 不知道应复用哪条声明。
-    if len(matches) != 1:
-        raise AssertionError(
-            f"expected one workflow={workflow!r} in {path}, actual={len(matches)}"
-        )
-    # 返回 Loader 原始二元组，后续仍交给 ApiRunner 处理动态变量和断言。
-    return matches[0]
 
 
 def prepare_shortlink_static_context(request_base: Any) -> None:
@@ -247,58 +216,61 @@ def _create_retry_settings(request_base: Any) -> tuple[int, float]:
     return max_attempts, interval_seconds
 
 
-def create_shortlink_from_yaml(request_base: Any) -> dict[str, str]:
-    """复用 ``link.yaml/create_success`` 创建前置数据，并仅处理已知 B100000 临时限流。"""
-    # 正式 Smoke Create 与 fixture 前置 Create 共用同一 YAML Case，避免两份 originUrl/Body。
-    base_info, test_case = shortlink_case(LINK_YAML_PATH, "create_success")
-    # 只读取 YAML json；字段内容仍然由 YAML 维护。
+def create_shortlink_from_case(executor: CaseExecutor) -> dict[str, str]:
+    """复用 V2 ``shortlink.link.create.success`` 准备真实前置数据。
+
+    普通 Create Smoke 仍由 Generic Runtime 严格执行一次；这里只用于其他 Case/Workflow 的
+    前置资源准备。当前 SUT 的 Sentinel 会在 HTTP 200 中用 ``B100000`` 表示瞬时 QPS
+    限流，因此项目适配层只对这一已知业务码做有界重试，任何其他错误立即失败。
+    """
+    # 稳定 case_id 是 V2 Test Specification 的机器主键；不再依赖旧 workflow 字符串或文件位置。
+    case = executor.registry.get("shortlink.link.create.success")
+    # 前置 Create 必须在 Login -> Group 上下文已经建立之后执行，否则 gid/token 都不存在。
+    executor.ensure_context("shortlink.group")
+    # CaseSpec 负责把 V2 request/assertions 转成现有 ApiRunner 能理解的请求结构。
+    base_info, test_case = case.to_runner_parts()
     raw_body = test_case.get("json")
-    # Create 前置必须有 mapping Body，否则说明项目 YAML 被错误修改。
+    # Create 的业务 Body 必须是 mapping；如果 Case 被错误改成其他请求形态，应在发 HTTP 前失败。
     if not isinstance(raw_body, dict):
-        raise AssertionError("create_success YAML json must be a mapping")
+        raise AssertionError("shortlink.link.create.success json must be a mapping")
 
-    # 使用 ApiRunner 的通用动态解析能力处理 config()/gid/timestamp 等表达式。
-    body = request_base.resolve_dynamic(raw_body)
-    # Header 同样复用 baseInfo，并从 VariableContext 注入 username/token。
-    headers = request_base.resolve_dynamic(base_info.get("header", {}))
-    # URL 仍走 ApiRunner 的相对/绝对地址解析规则。
-    url = request_base._resolve_url(base_info.get("url", ""))
-    # 重试次数和间隔来自当前项目环境 YAML。
-    max_attempts, interval_seconds = _create_retry_settings(request_base)
+    runner = executor.runner
+    # 使用框架统一动态解析处理 config()/gid/timestamp 等表达式，不在项目层复制模板替换逻辑。
+    body = runner.resolve_dynamic(raw_body)
+    headers = runner.resolve_dynamic(base_info.get("header", {}))
+    url = runner._resolve_url(base_info.get("url", ""))
+    max_attempts, interval_seconds = _create_retry_settings(runner)
 
-    # 这里只给“测试前置数据准备”有限重试；正式 Create 用例仍执行一次并严格失败。
     for attempt in range(1, max_attempts + 1):
-        # 通过统一 RequestClient 发真实 HTTP 请求；这里只绕过成功 validation 以便识别 B100000。
-        response = request_base.client.request(
+        # 这里直接使用统一 RequestClient，是因为要在正式业务断言前读取 B100000 并决定是否重试。
+        response = runner.client.request(
             str(base_info.get("method", "POST")).upper(),
             url,
             headers=headers,
             json=body,
         )
-        # Sentinel 临时限流也通过 HTTP 200 返回，因此 HTTP 非 200 直接失败而不重试。
+        # Sentinel 的限流也是 HTTP 200；HTTP 层异常不属于该项目重试策略，直接真实失败。
         assert response.status_code == 200, (
-            f"Short-link prerequisite create HTTP status expected 200, actual={response.status_code}"
+            "Short-link prerequisite create HTTP status expected 200, "
+            f"actual={response.status_code}"
         )
-        # 读取当前 SUT JSON 业务响应以判断成功或已知临时限流。
         payload = response.json()
-        # code=0 表示前置数据已经真实创建成功。
         if isinstance(payload, dict) and payload.get("code") == "0":
-            # data 必须是对象，后续才能统一规范化业务变量。
             data = payload.get("data")
             assert isinstance(data, dict), "create prerequisite response missing object data"
-            # 成功后立即写入 short_uri/full_short_url/物理资源 Key 等上下文。
-            return capture_created_link_context(request_base, data)
-        # 仅当前项目明确的 Sentinel B100000 可以在还有剩余次数时等待后重试。
-        if isinstance(payload, dict) and payload.get("code") == "B100000" and attempt < max_attempts:
-            # 等待一个配置化窗口，不把固定 sleep 时间写死在测试函数中。
+            # 规范化短链身份并建立 DB/Redis 物理资源上下文，供后续 YAML Case/Workflow 直接使用。
+            return capture_created_link_context(runner, data)
+        if (
+            isinstance(payload, dict)
+            and payload.get("code") == "B100000"
+            and attempt < max_attempts
+        ):
             time.sleep(interval_seconds)
             continue
-        # 任何其他业务错误或最后一次 B100000 都真实失败，不能被重试掩盖。
+        # 未知业务失败或最后一次限流必须暴露，不能因为“前置数据”身份而被吞掉。
         _assert_business_success(response, "Short-link prerequisite create")
 
-    # 正常循环路径都会 return 或 raise；保留防御性错误便于未来修改时暴露逻辑漏洞。
     raise AssertionError("Short-link prerequisite create exhausted unexpectedly")
-
 
 def _recycle_path(request_base: Any, key: str) -> str:
     """从项目环境 YAML 读取回收接口路径，避免 support 再维护固定 URL。"""
