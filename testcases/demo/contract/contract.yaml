@@ -1,0 +1,67 @@
+version: 1
+project: demo
+metadata:
+  source_kind: controlled_mock
+  source_note: Contract for the framework-owned Mock API used by offline integration tests.
+  default_coverage_scope:
+    - external
+operations:
+  - id: demoLogin
+    service: mock
+    visibility: external
+    method: POST
+    path: /api/v1/auth/login
+    request_body:
+      required: true
+      content_type: application/json
+      fields:
+        - name: username
+          type: string
+          required: true
+        - name: password
+          type: string
+          required: true
+    responses:
+      - status: '200'
+      - status: '401'
+
+  - id: demoPublishInterface
+    service: mock
+    visibility: external
+    method: POST
+    path: /api/v1/interface/publish
+    request_body:
+      required: true
+      content_type: application/json
+      fields:
+        - name: name
+          type: string
+          required: true
+        - name: method
+          type: string
+          required: true
+        - name: path
+          type: string
+          required: true
+    responses:
+      - status: '200'
+      - status: '401'
+
+  - id: demoCallInterface
+    service: mock
+    visibility: external
+    method: POST
+    path: /api/v1/interface/call
+    request_body:
+      required: true
+      content_type: application/json
+      fields:
+        - name: interface_id
+          type: string
+          required: true
+        - name: params
+          type: object
+          required: true
+    responses:
+      - status: '200'
+      - status: '401'

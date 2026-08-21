@@ -8,7 +8,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Mapping
+import re
+from typing import Any, Mapping, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from contracts.model import Operation
 
 import yaml
 
@@ -19,6 +23,7 @@ class CaseSpecError(ValueError):
 
 _CONTROL_FLOW_KEYS = {"if", "else", "for", "while", "try", "finally"}
 _EXECUTION_MODES = {"declarative", "workflow"}
+_PATH_PARAM_PATTERN = re.compile(r"\{([^{}]+)\}")
 
 
 def _non_empty_text(value: Any, *, field_name: str, source: Path) -> str:
@@ -85,19 +90,44 @@ class CaseSpec:
                 values.append(tag)
         return tuple(values)
 
-    def to_runner_parts(self) -> tuple[dict[str, Any], dict[str, Any]]:
+    def to_runner_parts(self, operation: "Operation | None" = None) -> tuple[dict[str, Any], dict[str, Any]]:
         """转换为现有 ``ApiRunner.run(base_info, test_case)`` 所需结构。
 
-        该适配层让执行模型可以先升级而无需同时重写稳定的网络/断言引擎。
+        Contract-bound Case 的 method/path/service 来自当前 ``Operation``；Case YAML 只保留
+        请求数据与 path_params。没有 ``operation_id`` 的 standalone Case 继续使用自己
+        声明的 method/path/url。
         """
         request = dict(self.request)
-        raw_url = request.pop("url", request.pop("path", None))
-        if not isinstance(raw_url, str) or not raw_url.strip():
-            raise CaseSpecError(f"request.path/url must be non-empty: {self.source}")
+        raw_url = request.pop("url", None)
+        raw_path = request.pop("path", None)
+        raw_method = request.pop("method", None)
+        path_params = request.pop("path_params", {})
 
-        method = request.pop("method", "GET")
+        if operation is not None:
+            method = operation.method
+            placeholders = _PATH_PARAM_PATTERN.findall(operation.path)
+            provided = set(path_params) if isinstance(path_params, dict) else set()
+            missing = [name for name in placeholders if name not in provided]
+            extra = sorted(provided - set(placeholders))
+            if missing:
+                raise CaseSpecError(
+                    f"request.path_params missing Contract path parameter(s) {missing}: {self.source}"
+                )
+            if extra:
+                raise CaseSpecError(
+                    f"request.path_params contains unknown Contract path parameter(s) {extra}: {self.source}"
+                )
+            raw_url = operation.path
+            for name in placeholders:
+                raw_url = raw_url.replace("{" + name + "}", str(path_params[name]))
+        else:
+            raw_url = raw_url if raw_url is not None else raw_path
+            method = raw_method
+
+        if not isinstance(raw_url, str) or not raw_url.strip():
+            raise CaseSpecError(f"request endpoint must resolve to non-empty text: {self.source}")
         if not isinstance(method, str) or not method.strip():
-            raise CaseSpecError(f"request.method must be non-empty text: {self.source}")
+            raise CaseSpecError(f"request method must resolve to non-empty text: {self.source}")
 
         api_name = request.pop("api_name", self.name)
         headers = request.pop("headers", request.pop("header", {}))
@@ -112,6 +142,8 @@ class CaseSpec:
             "method": method.upper(),
             "header": headers,
         }
+        if operation is not None and operation.service:
+            base_info["service"] = operation.service
         test_case: dict[str, Any] = {
             "case_id": self.case_id,
             "case_name": self.name,
@@ -139,8 +171,8 @@ class CaseSpec:
         if self.metadata:
             test_case["metadata"] = dict(self.metadata)
 
-        # request 中除 method/path/headers 外的字段沿用 ApiRunner 已支持的请求参数名，
-        # 例如 json/params/data/request_options。这样 V2 只改变测试资产结构，不复制网络层。
+        # endpoint/path_params/service 已在 Contract 适配边界消费；其余字段继续沿用 ApiRunner 支持的
+        # json/params/data/request_options 等通用请求参数，不复制网络层。
         for key, value in request.items():
             test_case[key] = value
         return base_info, test_case
@@ -160,17 +192,6 @@ def _parse_case(raw: Any, *, source: Path) -> CaseSpec:
     case_id = _non_empty_text(raw.get("id"), field_name="id", source=source)
     name = _non_empty_text(raw.get("name"), field_name="name", source=source)
     level = _non_empty_text(raw.get("level"), field_name="level", source=source)
-    request = raw.get("request")
-    if not isinstance(request, dict):
-        raise CaseSpecError(f"request must be a mapping: {source}")
-    if not isinstance(request.get("path", request.get("url")), str):
-        raise CaseSpecError(f"request requires path or url: {source}")
-
-    assertions = raw.get("assertions")
-    if not isinstance(assertions, list):
-        raise CaseSpecError(f"assertions must be a list: {source}")
-    if not all(isinstance(item, dict) for item in assertions):
-        raise CaseSpecError(f"every assertion must be a mapping: {source}")
 
     execution = str(raw.get("execution", "declarative")).strip()
     if execution not in _EXECUTION_MODES:
@@ -182,6 +203,38 @@ def _parse_case(raw: Any, *, source: Path) -> CaseSpec:
     if operation_id is not None:
         operation_id = _non_empty_text(operation_id, field_name="operation_id", source=source)
     operations = _text_tuple(raw.get("operations"), field_name="operations", source=source)
+
+    request = raw.get("request", {} if execution == "workflow" else None)
+    if not isinstance(request, dict):
+        raise CaseSpecError(f"request must be a mapping: {source}")
+    path_params = request.get("path_params")
+    if path_params is not None and not isinstance(path_params, dict):
+        raise CaseSpecError(f"request.path_params must be a mapping: {source}")
+
+    if execution == "declarative":
+        if operation_id is not None:
+            if any(field in request for field in ("method", "path", "url")):
+                raise CaseSpecError(
+                    f"Contract-bound case must not declare request.method/path/url; "
+                    f"resolve endpoint from operation_id={operation_id!r}: {source}"
+                )
+        else:
+            endpoint = request.get("url", request.get("path"))
+            method = request.get("method")
+            if not isinstance(endpoint, str) or not endpoint.strip():
+                raise CaseSpecError(f"standalone request requires path or url: {source}")
+            if not isinstance(method, str) or not method.strip():
+                raise CaseSpecError(f"standalone request requires method: {source}")
+            if path_params is not None:
+                raise CaseSpecError(
+                    f"request.path_params requires operation_id and Contract path template: {source}"
+                )
+
+    assertions = raw.get("assertions")
+    if not isinstance(assertions, list):
+        raise CaseSpecError(f"assertions must be a list: {source}")
+    if not all(isinstance(item, dict) for item in assertions):
+        raise CaseSpecError(f"every assertion must be a mapping: {source}")
 
     extract = raw.get("extract", {})
     if not isinstance(extract, dict):

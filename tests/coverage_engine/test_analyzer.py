@@ -49,7 +49,7 @@ cases:
     name: ping
     operation_id: ping
     level: smoke
-    request: {method: GET, path: /ping}
+    request: {}
     assertions: [{status_code: 200}]
 """.strip()
         + "\n",

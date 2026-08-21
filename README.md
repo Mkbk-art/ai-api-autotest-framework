@@ -1,8 +1,8 @@
 # AI 辅助接口自动化测试框架
 
-> 当前开发线：Declarative Case Runtime / Contract-driven & Change-aware 架构重构
-> 当前离线验证：Framework tests `180 passed`；Mock smoke/core/regression 均 `2 passed, 4 deselected`。
-> 真实 SUT：Shortlink SaaS 仅作为第一个验证项目；本轮执行模型重构后的真实 Smoke/Core/Regression 需要在用户本机重新验收。
+> 当前开发线：Stage 6.5 — Contract-driven Case Simplification
+> 当前验证：Framework tests `280 passed, 2 skipped`；Demo smoke/core/regression 均 `2 passed, 4 deselected`；真实 Shortlink 已完成一次 `/stats -> /stats-v2` Change-aware Regression 闭环。
+> 真实 SUT：Shortlink SaaS 只是第一个验证项目；Contract-bound Case 的 endpoint 现在由 `operation_id -> ApiContract` 统一解析。
 
 这是一个面向**测试开发 / 测试工程化**岗位的可复用 API 自动化测试框架。
 
@@ -71,8 +71,6 @@ cases:
     risks: [authentication, invalid_input]
 
     request:
-      method: POST
-      path: /api/user/login
       json:
         username: ${config(test_user)}
         password: ${invalid_password()}
@@ -103,6 +101,43 @@ Allure
 
 项目无需为上面这条 Case 创建 Python 测试函数。
 
+Contract-bound 普通 Case **不再重复写 `method/path/url`**。当前 endpoint 来自：
+
+```text
+operation_id
+↓
+ApiContract Operation(method + path + service)
+        +
+Environment(api.host + optional api.service_hosts)
+        +
+Case path_params / request data / assertions
+↓
+Final request URL
+```
+
+因此后端 `/v1/login -> /v2/login` 时，只要当前 Contract 同步变化，普通 Case 不需要再修改 endpoint。
+多服务项目通过环境配置把 Contract 的 `service` 映射到对应 base URL，例如：
+
+```yaml
+api:
+  host: http://gateway.test:8080
+  service_hosts:
+    user: http://user-service.test:8081
+    payment: http://payment-service.test:8082
+```
+
+Case 只写 `operation_id` 和必要的 `path_params`；没有 `operation_id` 的临时 standalone Case 才允许自己声明 `method + path/url`。
+
+三类资产职责必须分开：
+
+| 资产 | 作用 | 是否人工维护 endpoint |
+|---|---|---|
+| Current Contract | 描述“当前 API 应该是什么”，是 `operation_id -> method/path/schema` 的事实源 | OpenAPI 优先自动提供；Static Manifest 才人工同步 |
+| Baseline Snapshot | 保存“上一个已接受的规范化 Contract”，只用于 Contract Diff / Smart Regression | 不手工编辑；仅通过 `baseline init/accept` 显式生成 |
+| Case YAML | 描述“拿什么数据测试、期待什么结果”，维护 params/body/headers/assertions/extract/requires 等 | Contract-bound Case 不重复维护 method/path/url |
+
+因此 Baseline **不是执行普通接口测试所必需的第三份 API 定义**；FULL 测试只需要 Current Contract + Case。Baseline 只在需要回答“相比上一个已接受版本，接口改了什么”时参与 Stage 6 AUTO。
+
 ### 2.2 复杂 Workflow：才写 Python
 
 当测试存在真正的程序控制流，例如：
@@ -119,7 +154,7 @@ finally cleanup
 
 保留 Python Workflow。
 
-Workflow 不重新写普通 Requests/断言，而是复用稳定 `case_id` 或 YAML 中的断言组。
+Workflow 不重新写普通 Requests/断言，而是通过 `CaseExecutor` 复用稳定 `case_id` 或 YAML 中的断言组；endpoint 解析仍走同一个 Contract-aware 执行入口。
 
 ```python
 # 概念示例
@@ -208,7 +243,7 @@ operation_id   API Contract Operation ID
 risks          风险元数据
 requires       项目 Context Provider
 execution      declarative 或 workflow
-request        HTTP 规格
+request        测试输入/Headers/Params/Body/path_params；Contract-bound Case 不重复 method/path/url
 extract        响应变量
 assertions     统一断言
 poll           可选最终一致性轮询
@@ -272,7 +307,7 @@ Core 只负责生命周期，不认识具体业务。
 - JSON / Form / Params / Files；
 - timeout；
 - TLS verification；
-- 相对 URL / 绝对 URL；
+- Contract 相对 path + service-aware base URL；Standalone Case 兼容绝对 URL；
 - `allow_redirects` 受控 Requests option；
 - Request / Response 日志；
 - Allure 附件；
@@ -601,6 +636,55 @@ reports/coverage/<env>/coverage-index.json
 reports/coverage/<env>/coverage-gap.json
 ```
 
+### Change-aware Smart Regression（Stage 6）
+
+默认行为仍然是 FULL，现有命令不会因为 Stage 6 自动缩小测试范围：
+
+```bash
+python run.py --env test --level smoke
+python run.py --env test --level core
+python run.py --env test --level regression
+```
+
+整个项目全量：
+
+```bash
+python run.py --env test --level all --selection full
+```
+
+AUTO 只有用户显式开启时才生效：
+
+```bash
+python run.py --env test --level all --selection auto
+```
+
+只预览选择结果、不启动 Pytest：
+
+```bash
+python run.py --env test --level all --selection auto --selection-only
+```
+
+AUTO 会生成：
+
+```text
+reports/runs/<run_id>/contract/baseline.json
+reports/runs/<run_id>/contract/current.json
+reports/runs/<run_id>/contract/diff.json
+reports/runs/<run_id>/selection/selection.json
+reports/runs/<run_id>/selection/selection.md
+```
+
+`selection.md` 是人类查看“为什么选这些测试”的主入口；`selection.json` 给 Pytest/CI/后续模块使用。AUTO 实际执行后，每个被执行 Case 还会在 Allure 附带 `Regression Selection Evidence`。
+
+Baseline 绝不会被普通测试自动覆盖。第一次建立和后续明确接受新 Contract 必须是独立显式动作：
+
+```bash
+python -m regression_engine.cli baseline init --env <env>
+python -m regression_engine.cli baseline accept --env <env>
+```
+
+当 Baseline 缺失/损坏或 Dependency metadata 不安全时，AUTO 会回退 FULL，而不是冒险少跑测试。
+
 ---
 
 ## 13. 当前验证状态
@@ -608,7 +692,7 @@ reports/coverage/<env>/coverage-gap.json
 ### Framework / Runtime
 
 ```text
-Framework tests      211 passed
+Framework tests      269 passed, 2 skipped
 Demo smoke           2 passed, 4 deselected
 Demo core            2 passed, 4 deselected
 Demo regression      2 passed, 4 deselected
@@ -620,7 +704,7 @@ Shortlink regression 6 / 18
 
 Declarative Runtime 已在真实 Shortlink Smoke/Core/Regression、本地 Allure、GitHub Actions 和 Jenkins 中完成验证。
 
-### Stage 5 Contract / Coverage 离线证据
+### Stage 5 Contract / Coverage 证据
 
 ```text
 Stage 5 focused tests    34 passed
@@ -635,6 +719,21 @@ Unbound cases             0
 
 该 Coverage 是当前 18 条代表性测试资产的真实映射结果，不把百分比包装成“质量分数”。它用于让 API 覆盖缺口可计算，并为下一阶段 Contract Diff / Change-aware Regression 提供输入。
 
+### Stage 6 Local + Thin CI 离线证据
+
+```text
+Stage 6 focused/contract tests   73+ passed
+Framework full suite             280 passed, 2 skipped
+Demo smoke/core/regression       各 2 passed, 4 deselected
+Demo level=all FULL              6 passed
+Demo AUTO Preview                2 / 6 selected
+Demo AUTO real Pytest            2 passed, 4 deselected
+Shortlink AUTO Preview           6 / 18 selected（Contract 无变化，仅 Smoke Safety）
+compileall                       PASS
+```
+
+Stage 6.5 完成 Contract-driven Case Simplification 后，Demo smoke/core/regression、all FULL、AUTO Preview/AUTO 真执行以及 Shortlink Coverage/Preview 均保持通过。真实 Windows Shortlink `/stats-v2` 的“Case 不再修改 endpoint”验证和最终 GitHub Actions/Jenkins 平台验收仍需用户侧执行，因此 Stage 6/6.5 暂不标记最终完成。
+
 ---
 
 ## 14. 下一阶段路线
@@ -642,11 +741,13 @@ Unbound cases             0
 ```text
 Declarative Case Runtime          ✅
 ↓
-Contract Provider + Coverage      当前：代码与离线验收完成，待本机复验/CI 后封板
+Contract Provider + Coverage      ✅ Stage 5 已完成
 ↓
-Change-aware Smart Regression
+Change-aware Smart Regression     ✅ 真实 Shortlink 变更闭环已验证，最终 CI 待验收
 ↓
-AI Risk-based Test Design
+Contract-driven Case Simplification 当前：Local 实现完成，待真实 Shortlink 单一事实源验证
+↓
+AI Risk-based Test Design          ⏸ Stage 6.5 验收后重新评估
 ↓
 Failure Fingerprint / Cluster / Triage
 ↓

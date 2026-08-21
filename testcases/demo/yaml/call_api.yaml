@@ -10,8 +10,6 @@ cases:
     requires: [demo.published_interface]
     request:
       api_name: 调用已发布接口
-      method: POST
-      path: /api/v1/interface/call
       headers:
         Content-Type: application/json;charset=UTF-8
         Authorization: Bearer ${access_token}
@@ -34,8 +32,6 @@ cases:
     requires: [demo.published_interface]
     request:
       api_name: 调用已发布接口
-      method: POST
-      path: /api/v1/interface/call
       headers:
         Content-Type: application/json;charset=UTF-8
         Authorization: Bearer invalid_token

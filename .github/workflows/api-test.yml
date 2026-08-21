@@ -59,12 +59,18 @@ jobs:
         run: |
           python run.py --env test --level smoke --run-id github-actions-demo
 
-      # 6) compileall 能提前发现测试未覆盖到的语法/编码错误；仍然不接触具体业务环境。
+      # 6) Stage 6 只做薄 CI 验证：用受控 Demo Contract 生成 AUTO Preview。
+      #    不修改 baseline、不访问真实 SUT，也不在 workflow 内实现 Diff/Selector。
+      - name: Preview Stage 6 AUTO selection
+        run: |
+          python run.py --env test --level all --selection auto --selection-only --run-id github-actions-selection-preview
+
+      # 7) compileall 能提前发现测试未覆盖到的语法/编码错误；仍然不接触具体业务环境。
       - name: Compile Python sources
         run: |
-          python -m compileall -q core db utils mock_server testcases tests run.py conftest.py
+          python -m compileall -q ai contracts coverage_engine regression_engine core db utils mock_server testcases tests run.py conftest.py
 
-      # 7) Artifact 无论前面成功还是失败都尝试上传，红灯时仍能拿到 JUnit/Allure/run.json 排查。
+      # 8) Artifact 无论前面成功还是失败都尝试上传，红灯时仍能拿到 JUnit/Allure/run.json 排查。
       - name: Upload CI test evidence
         if: always()
         uses: actions/upload-artifact@v7
@@ -73,6 +79,7 @@ jobs:
           path: |
             reports/ci/
             reports/runs/github-actions-demo/
+            reports/runs/github-actions-selection-preview/
             logs/
           # 某个更早阶段（例如安装依赖）失败时可能尚未生成报告，这里只警告而不覆盖原失败原因。
           if-no-files-found: warn

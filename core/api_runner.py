@@ -115,12 +115,12 @@ class ApiRunner:
             return tuple(self._replace_dynamic_params(item) for item in data)
         return data
 
-    def _resolve_url(self, raw_url: Any) -> str:
-        """解析 YAML URL，并兼容普通 API 相对路径与跨服务绝对地址。
+    def _resolve_url(self, raw_url: Any, *, service: str | None = None) -> str:
+        """解析请求 URL，并按 Contract service 选择环境 base URL。
 
-        普通业务接口仍然写 ``/api/...``，由框架拼接当前环境的 ``self.host``；
-        跨服务请求可以在 YAML 中直接写完整 ``http://`` / ``https://`` URL。
-        无论是哪一种形式，URL 中的 ``${变量}`` 都会在真正发请求前从 VariableContext 替换。
+        Contract-bound Case 传入的始终是相对 Contract path；若当前环境在
+        ``api.service_hosts`` 中为该 service 配置了专用地址，则优先使用它，否则回退
+        ``api.host``。Standalone Case 仍可传完整 ``http://`` / ``https://`` URL。
         """
 
         # URL 与 Header/Body 一样属于运行时数据，因此先解析 ``${resource_id}`` 等动态变量。
@@ -129,14 +129,32 @@ class ApiRunner:
         if not isinstance(resolved_url, str) or not resolved_url:
             raise ValueError(f"YAML baseInfo.url must resolve to a non-empty string, actual={resolved_url!r}")
 
-        # 完整 URL 表示 YAML 已明确指定目标服务，例如另一个本地服务的完整地址。
+        # Standalone Case 仍可显式使用完整 URL；Contract-bound Case 在 Parser 层禁止该重复事实源。
         if resolved_url.startswith(("http://", "https://")):
             return resolved_url
 
-        # 普通 ``/api/...`` 接口继续走 当前环境 YAML 中配置的 API host。
+        base_host = self.host
+        api_config = self.runtime_config.get("api", {})
+        if not isinstance(api_config, dict):
+            raise TypeError("runtime_config.api must be a mapping")
+        service_hosts = api_config.get("service_hosts", {})
+        if service_hosts is None:
+            service_hosts = {}
+        if not isinstance(service_hosts, dict):
+            raise TypeError("api.service_hosts must be a mapping")
+        if service:
+            candidate = service_hosts.get(service)
+            if candidate is not None:
+                if not isinstance(candidate, str) or not candidate.strip():
+                    raise ValueError(f"api.service_hosts.{service} must be a non-empty URL")
+                candidate = candidate.strip().rstrip("/")
+                if not candidate.startswith(("http://", "https://")):
+                    raise ValueError(f"api.service_hosts.{service} must start with http:// or https://")
+                base_host = candidate
+
         if not resolved_url.startswith("/"):
             resolved_url = f"/{resolved_url}"
-        return f"{self.host}{resolved_url}"
+        return f"{base_host}{resolved_url}"
 
     def _request_options(self, test_case: dict[str, Any]) -> dict[str, Any]:
         """读取 YAML 的底层 Requests 行为选项，并限制为框架明确支持的安全集合。
@@ -225,8 +243,8 @@ class ApiRunner:
         """
         # api_name 只用于日志与 Allure 标识，不参与真实网络路由。
         api_name = base_info.get("api_name", "unknown")
-        # URL 统一由 _resolve_url 处理：相对路径走环境 host，绝对 URL 直接访问目标服务。
-        url = self._resolve_url(base_info.get("url", ""))
+        # URL 统一由 _resolve_url 处理：Contract 相对路径按 service 选择环境 host；Standalone 绝对 URL 直连。
+        url = self._resolve_url(base_info.get("url", ""), service=base_info.get("service"))
         # HTTP Method 统一转成大写，避免 YAML 大小写差异影响底层客户端。
         method = base_info.get("method", "GET").upper()
         # 基础 Header 与 Case Header 合并后再做运行时变量替换。

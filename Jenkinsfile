@@ -32,8 +32,20 @@ pipeline {
         // LEVEL 是框架级稳定语义，由统一 run.py 转换成 Pytest marker 选择。
         choice(
             name: 'LEVEL',
-            choices: ['smoke', 'core', 'regression'],
+            choices: ['smoke', 'core', 'regression', 'all'],
             description: '选择本次执行的测试层级'
+        )
+        // SELECTION 只把用户策略交给统一 run.py；Jenkins 不实现 Contract Diff 或 Selector。
+        choice(
+            name: 'SELECTION',
+            choices: ['full', 'auto'],
+            description: '回归选择策略；full 保持完整层级执行，auto 显式启用 Stage 6'
+        )
+        // Preview 只生成 selection.json/md，不启动 Pytest；仅在 AUTO 模式下有效。
+        booleanParam(
+            name: 'SELECTION_ONLY',
+            defaultValue: false,
+            description: '仅预览 AUTO 选择结果；要求 SELECTION=auto'
         )
         // ENV_FILE 只保存“外部覆盖 YAML 路径”。留空时完全沿用仓库公开配置，适合 Mock/公共环境。
         // 真实凭据仍由用户在仓库外 YAML 中编辑，不进入 Jenkinsfile、Git 历史或命令行参数值。
@@ -86,12 +98,23 @@ pipeline {
                         error("ENV_FILE does not exist on Jenkins Agent: ${envFile}")
                     }
 
-                    // 运行命令始终只包含 ENV_NAME/LEVEL/run-id；真实 YAML 内容从不拼入 Console Output。
+                    // Preview 是用户显式控制；full + selection-only 属于无意义组合，提前给出清楚错误。
+                    if (params.SELECTION_ONLY && params.SELECTION != 'auto') {
+                        error('SELECTION_ONLY requires SELECTION=auto')
+                    }
+
+                    // CI 只把 Stage 6 参数交给 run.py，不在 Jenkinsfile 中复制 Diff/Dependency/Selector 逻辑。
+                    def selectionArgs = "--selection \"${params.SELECTION}\""
+                    if (params.SELECTION_ONLY) {
+                        selectionArgs += ' --selection-only'
+                    }
+
+                    // 运行命令只包含逻辑环境、层级、选择策略和 run-id；真实 YAML 内容从不拼入 Console Output。
                     def runCommand = {
                         if (isUnix()) {
-                            sh ".venv/bin/python run.py --env \"${params.ENV_NAME}\" --level \"${params.LEVEL}\" --run-id \"${runId}\""
+                            sh ".venv/bin/python run.py --env \"${params.ENV_NAME}\" --level \"${params.LEVEL}\" ${selectionArgs} --run-id \"${runId}\""
                         } else {
-                            bat ".venv\\Scripts\\python.exe run.py --env \"${params.ENV_NAME}\" --level \"${params.LEVEL}\" --run-id \"${runId}\""
+                            bat ".venv\\Scripts\\python.exe run.py --env \"${params.ENV_NAME}\" --level \"${params.LEVEL}\" ${selectionArgs} --run-id \"${runId}\""
                         }
                     }
 

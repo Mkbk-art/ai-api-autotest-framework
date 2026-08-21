@@ -10,8 +10,6 @@ cases:
     requires: [demo.authenticated]
     request:
       api_name: 发布新接口
-      method: POST
-      path: /api/v1/interface/publish
       headers:
         Content-Type: application/json;charset=UTF-8
         Authorization: Bearer ${access_token}
@@ -35,8 +33,6 @@ cases:
     risks: [authorization]
     request:
       api_name: 发布新接口
-      method: POST
-      path: /api/v1/interface/publish
       headers:
         Content-Type: application/json;charset=UTF-8
       json:

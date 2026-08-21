@@ -15,8 +15,8 @@ cases:
   - state_transition
   request:
     api_name: 访问动态短链接
-    method: GET
-    url: http://nurl.ink:8001/${short_uri}
+    path_params:
+      short-uri: ${short_uri}
     request_options: &id001
       allow_redirects: false
   assertions:
@@ -40,8 +40,8 @@ cases:
   - state_transition
   request:
     api_name: 访问动态短链接
-    method: GET
-    url: http://nurl.ink:8001/${short_uri}
+    path_params:
+      short-uri: ${short_uri}
     request_options: *id001
   assertions:
   - status_code: 302
@@ -64,8 +64,8 @@ cases:
   - cache_consistency
   request:
     api_name: 访问动态短链接
-    method: GET
-    url: http://nurl.ink:8001/${short_uri}
+    path_params:
+      short-uri: ${short_uri}
     request_options: *id001
   assertions:
   - status_code: 302
@@ -96,8 +96,8 @@ cases:
   - invalid_input
   request:
     api_name: 访问不存在的短链接
-    method: GET
-    url: http://nurl.ink:8001/not-exists-${random_string(24)}
+    path_params:
+      short-uri: not-exists-${random_string(24)}
     request_options:
       allow_redirects: false
   assertions:

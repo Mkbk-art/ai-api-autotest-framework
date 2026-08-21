@@ -37,7 +37,8 @@ from core.config_manager import ConfigManager
 # PROJECT_ROOT 保证相对路径与报告目录不依赖命令执行位置。
 from utils.project_paths import PROJECT_ROOT
 
-_LEVELS = ("smoke", "core", "regression")
+_LEVELS = ("smoke", "core", "regression", "all")
+_LEGACY_LEVELS = ("smoke", "core", "regression")
 
 
 @contextmanager
@@ -82,7 +83,11 @@ def resolve_level(
     """解析新 ``--level`` 参数以及历史兼容的独立层级参数。"""
     if level is not None:
         return level
-    selected = [name for name, enabled in zip(_LEVELS, (smoke, core, regression)) if enabled]
+    selected = [
+        name
+        for name, enabled in zip(_LEGACY_LEVELS, (smoke, core, regression))
+        if enabled
+    ]
     if len(selected) > 1:
         raise ValueError("Choose only one legacy level flag")
     return selected[0] if selected else None
@@ -99,13 +104,75 @@ def build_pytest_args(
 ) -> list[str]:
     """根据一次运行配置构造最终传给 ``pytest.main`` 的参数列表。"""
     args = ["-s", "-v", str(test_path), f"--junitxml={junit_path}"]
-    if level:
+    if level and level != "all":
         args.extend(["-m", level])
     if collect_only:
         args.append("--collect-only")
     if allure_enabled:
         args.extend([f"--alluredir={results_dir}", "--clean-alluredir"])
     return args
+
+
+@contextmanager
+def _runtime_api_environment(env_name: str, api: dict) -> Iterator[None]:
+    """Temporarily expose resolved API runtime values to Pytest and restore them afterwards."""
+    values = {
+        "API_TEST_ENV": env_name,
+        "API_HOST": str(api.get("host", "")),
+        "API_TIMEOUT": str(api.get("timeout", 30)),
+        "API_VERIFY_SSL": str(bool(api.get("verify_ssl", True))).lower(),
+        "API_USE_MOCK": str(bool(api.get("use_mock", False))).lower(),
+    }
+    previous = {key: os.environ.get(key) for key in values}
+    os.environ.update(values)
+    try:
+        yield
+    finally:
+        for key, old_value in previous.items():
+            if old_value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = old_value
+
+
+@contextmanager
+def _runtime_selection_file(selection_file: str | Path | None) -> Iterator[Path | None]:
+    """在一次 Pytest 生命周期内暴露 Stage 6 SelectionPlan 文件。
+
+    ``run.py`` 的默认 FULL 语义必须不受进程外残留环境变量影响，所以未提供
+    SelectionPlan 时会临时移除 ``API_TEST_SELECTION_FILE``；AUTO 执行时只把
+    已生成的 machine-readable selection.json 路径交给 Pytest collection hook。
+    上下文结束后恢复调用前环境，避免同进程测试串状态。
+    """
+    previous = os.environ.get("API_TEST_SELECTION_FILE")
+    if selection_file is None:
+        os.environ.pop("API_TEST_SELECTION_FILE", None)
+        try:
+            yield None
+        finally:
+            if previous is not None:
+                os.environ["API_TEST_SELECTION_FILE"] = previous
+        return
+
+    resolved = Path(selection_file).expanduser()
+    if not resolved.is_absolute():
+        resolved = PROJECT_ROOT / resolved
+    resolved = resolved.resolve()
+    os.environ["API_TEST_SELECTION_FILE"] = str(resolved)
+    try:
+        yield resolved
+    finally:
+        if previous is None:
+            os.environ.pop("API_TEST_SELECTION_FILE", None)
+        else:
+            os.environ["API_TEST_SELECTION_FILE"] = previous
+
+
+def _analyze_regression_selection(**kwargs):
+    """Lazy-load Stage 6 analysis so default FULL runs keep the legacy lightweight path."""
+    from regression_engine.analyzer import analyze_selection
+
+    return analyze_selection(**kwargs)
 
 
 def _allure_plugin_available() -> bool:
@@ -152,6 +219,10 @@ def run_tests(
     junit_path: str | Path | None = None,
     collect_only: bool = False,
     cli_overrides: dict | None = None,
+    selection: str = "full",
+    selection_only: bool = False,
+    include_case_ids: tuple[str, ...] = (),
+    include_tags: tuple[str, ...] = (),
 ) -> int:
     """执行一次完整测试运行并返回真实 Pytest 退出码。
 
@@ -175,13 +246,30 @@ def run_tests(
         results.parent.mkdir(parents=True, exist_ok=True)
         junit.parent.mkdir(parents=True, exist_ok=True)
 
-        # 把最终 API 配置暴露给 Pytest 进程，使 conftest 与统一 Runner 使用同一配置来源。
+        # API 运行态只在真正 Pytest 生命周期中临时暴露，避免同进程多次运行串配置。
         api = config.get("api", {})
-        os.environ["API_TEST_ENV"] = env_name
-        os.environ["API_HOST"] = str(api.get("host", ""))
-        os.environ["API_TIMEOUT"] = str(api.get("timeout", 30))
-        os.environ["API_VERIFY_SSL"] = str(bool(api.get("verify_ssl", True))).lower()
-        os.environ["API_USE_MOCK"] = str(bool(api.get("use_mock", False))).lower()
+
+        normalized_selection = selection.strip().lower()
+        if normalized_selection not in {"full", "auto"}:
+            raise ValueError("selection must be 'full' or 'auto'")
+        if selection_only and normalized_selection != "auto":
+            raise ValueError("selection_only requires selection='auto'")
+
+        analysis_result = None
+        selection_file: Path | None = None
+        if normalized_selection == "auto":
+            # AUTO 是显式 opt-in；默认 FULL 永远不加载 Contract/Baseline。
+            analysis_result = _analyze_regression_selection(
+                env_name=env_name,
+                env_file=resolved_env_file,
+                output_dir=root,
+                level=level or "all",
+                selection="auto",
+                include_case_ids=tuple(include_case_ids),
+                include_tags=tuple(include_tags),
+            )
+            selection_file = Path(analysis_result.selection_json).resolve()
+            print(analysis_result.console_summary())
 
         allure_enabled = _allure_plugin_available()
         args = build_pytest_args(
@@ -192,34 +280,48 @@ def run_tests(
             allure_enabled=allure_enabled,
             collect_only=collect_only,
         )
-        # pytest.main 在同一进程执行，所以 collection hooks/fixtures 能读取临时 API_TEST_ENV_FILE。
-        exit_code = int(pytest.main(args))
 
-        html_generated = False
-        if allure_enabled and not collect_only:
-            try:
-                html_generated = _generate_allure_html(results, report)
-            except (subprocess.CalledProcessError, OSError):
-                # HTML 展示属于报告增强，不覆盖 Pytest 的真实测试退出码。
-                html_generated = False
+        if selection_only:
+            exit_code: int | None = None
+            html_generated = False
+        else:
+            # Pytest 仍是唯一执行器；Stage 6 只在 collection 前提供稳定 case_id 集合。
+            with _runtime_api_environment(env_name, api):
+                with _runtime_selection_file(selection_file):
+                    exit_code = int(pytest.main(args))
 
+            html_generated = False
+            if allure_enabled and not collect_only:
+                try:
+                    html_generated = _generate_allure_html(results, report)
+                except (subprocess.CalledProcessError, OSError):
+                    # HTML 展示属于报告增强，不覆盖 Pytest 的真实测试退出码。
+                    html_generated = False
+
+        plan = analysis_result.plan if analysis_result is not None else None
         # 证据只记录逻辑环境名和测试产物，不记录外部私有 YAML 的路径或内容。
         metadata = {
             "run_id": run_id,
             "environment": env_name,
             "level": level,
+            "selection_requested": normalized_selection,
+            "selection_mode": plan.mode if plan is not None else "full",
+            "selection_only": bool(selection_only),
+            "selection_file": str(selection_file) if selection_file is not None else None,
+            "eligible_case_count": len(plan.eligible_case_ids) if plan is not None else None,
+            "selected_case_count": len(plan.selected_cases) if plan is not None else None,
             "pytest_exit_code": exit_code,
-            "pytest_args": args,
+            "pytest_args": args if not selection_only else None,
             "allure_plugin_available": allure_enabled,
             "allure_html_generated": html_generated,
-            "junit_xml": str(junit),
-            "allure_results": str(results) if allure_enabled else None,
+            "junit_xml": str(junit) if not selection_only else None,
+            "allure_results": str(results) if allure_enabled and not selection_only else None,
             "allure_report": str(report) if html_generated else None,
         }
         (root / "run.json").write_text(
             json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8"
         )
-        return exit_code
+        return 0 if selection_only else int(exit_code)
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -235,6 +337,29 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--smoke", action="store_true", help="兼容旧参数")
     parser.add_argument("--core", action="store_true", help="兼容旧参数")
     parser.add_argument("--regression", action="store_true", help="兼容旧参数")
+    parser.add_argument(
+        "--selection",
+        choices=("full", "auto"),
+        default="full",
+        help="回归选择策略；默认 full 保持历史行为，auto 显式启用 Stage 6",
+    )
+    parser.add_argument(
+        "--selection-only",
+        action="store_true",
+        help="只生成 AUTO 选择结果与证据，不启动 Pytest",
+    )
+    parser.add_argument(
+        "--include-case",
+        action="append",
+        default=[],
+        help="AUTO 中额外加入指定 case_id，可重复传入",
+    )
+    parser.add_argument(
+        "--include-tag",
+        action="append",
+        default=[],
+        help="AUTO 中额外加入指定 tag 的 Case，可重复传入",
+    )
     parser.add_argument("--test-path", default="testcases")
     parser.add_argument("--host", help="覆盖 API host")
     parser.add_argument("--timeout", type=float, help="覆盖请求超时秒数")
@@ -284,6 +409,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
     except ValueError as exc:
         parser.error(str(exc))
+    if args.selection_only and args.selection != "auto":
+        parser.error("--selection-only requires --selection auto")
     return run_tests(
         env_name=args.env,
         env_file=args.env_file,
@@ -295,6 +422,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         junit_path=args.junitxml,
         collect_only=args.collect_only,
         cli_overrides=build_cli_overrides(args),
+        selection=args.selection,
+        selection_only=args.selection_only,
+        include_case_ids=tuple(args.include_case),
+        include_tags=tuple(args.include_tag),
     )
 
 

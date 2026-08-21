@@ -236,3 +236,63 @@ def test_api_runner_still_prefixes_host_for_relative_yaml_urls():
     )
 
     assert captured["url"] == "http://127.0.0.1:8000/api/demo"
+
+
+def test_api_runner_uses_service_specific_host_for_contract_relative_url():
+    captured = {}
+
+    class Response:
+        status_code = 200
+        text = '{}'
+        headers = {}
+        elapsed = None
+
+        def json(self):
+            return {}
+
+    class FakeClient:
+        def run(self, **kwargs):
+            captured.update(kwargs)
+            return Response()
+
+    runner = ApiRunner(
+        host="http://gateway.test",
+        client=FakeClient(),
+        runtime_config={"api": {"service_hosts": {"billing": "http://billing.test:8001"}}},
+    )
+    runner.run(
+        {"api_name": "billing", "url": "/abc", "method": "GET", "service": "billing"},
+        {"case_name": "service-route", "validation": [{"status_code": 200}]},
+    )
+
+    assert captured["url"] == "http://billing.test:8001/abc"
+
+
+def test_api_runner_falls_back_to_default_host_when_service_has_no_override():
+    captured = {}
+
+    class Response:
+        status_code = 200
+        text = '{}'
+        headers = {}
+        elapsed = None
+
+        def json(self):
+            return {}
+
+    class FakeClient:
+        def run(self, **kwargs):
+            captured.update(kwargs)
+            return Response()
+
+    runner = ApiRunner(
+        host="http://gateway.test",
+        client=FakeClient(),
+        runtime_config={"api": {"service_hosts": {"project": "http://project.test:8001"}}},
+    )
+    runner.run(
+        {"api_name": "users", "url": "/api/users", "method": "GET", "service": "user"},
+        {"case_name": "default-route", "validation": [{"status_code": 200}]},
+    )
+
+    assert captured["url"] == "http://gateway.test/api/users"

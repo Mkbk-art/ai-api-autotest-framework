@@ -1,0 +1,118 @@
+{
+  "contract": {
+    "metadata": {
+      "default_coverage_scope": [
+        "external"
+      ],
+      "source_kind": "controlled_mock",
+      "source_note": "Contract for the framework-owned Mock API used by offline integration tests."
+    },
+    "operations": [
+      {
+        "id": "demoLogin",
+        "method": "POST",
+        "path": "/api/v1/auth/login",
+        "request_body": {
+          "content_type": "application/json",
+          "fields": [
+            {
+              "name": "username",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "name": "password",
+              "required": true,
+              "type": "string"
+            }
+          ],
+          "required": true
+        },
+        "responses": [
+          {
+            "status": "200"
+          },
+          {
+            "status": "401"
+          }
+        ],
+        "service": "mock",
+        "visibility": "external"
+      },
+      {
+        "id": "demoPublishInterface",
+        "method": "POST",
+        "path": "/api/v1/interface/publish",
+        "request_body": {
+          "content_type": "application/json",
+          "fields": [
+            {
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "name": "method",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "name": "path",
+              "required": true,
+              "type": "string"
+            }
+          ],
+          "required": true
+        },
+        "responses": [
+          {
+            "status": "200"
+          },
+          {
+            "status": "401"
+          }
+        ],
+        "service": "mock",
+        "visibility": "external"
+      },
+      {
+        "id": "demoCallInterface",
+        "method": "POST",
+        "path": "/api/v1/interface/call",
+        "request_body": {
+          "content_type": "application/json",
+          "fields": [
+            {
+              "name": "interface_id",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "name": "params",
+              "required": true,
+              "type": "object"
+            }
+          ],
+          "required": true
+        },
+        "responses": [
+          {
+            "status": "200"
+          },
+          {
+            "status": "401"
+          }
+        ],
+        "service": "mock",
+        "visibility": "external"
+      }
+    ],
+    "project": "demo",
+    "source_kind": "static_manifest",
+    "version": "1"
+  },
+  "created_at": "2026-08-21T01:54:22.751719+00:00",
+  "project": "demo",
+  "snapshot_schema_version": 1,
+  "source_digest": "5eddc023c1fccb342385a8262d22cfa13e132b1cf88690057c6d10cd43fe3383"
+}

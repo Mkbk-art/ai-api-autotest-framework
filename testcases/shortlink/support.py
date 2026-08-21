@@ -228,7 +228,7 @@ def create_shortlink_from_case(executor: CaseExecutor) -> dict[str, str]:
     # 前置 Create 必须在 Login -> Group 上下文已经建立之后执行，否则 gid/token 都不存在。
     executor.ensure_context("shortlink.group")
     # CaseSpec 负责把 V2 request/assertions 转成现有 ApiRunner 能理解的请求结构。
-    base_info, test_case = case.to_runner_parts()
+    base_info, test_case = executor.build_runner_parts(case)
     raw_body = test_case.get("json")
     # Create 的业务 Body 必须是 mapping；如果 Case 被错误改成其他请求形态，应在发 HTTP 前失败。
     if not isinstance(raw_body, dict):

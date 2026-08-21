@@ -15,8 +15,6 @@ cases:
   - eventual_consistency
   request:
     api_name: 查询短链接访问统计
-    method: GET
-    path: /api/short-link/admin/v1/stats
     headers: &id001
       username: ${username}
       token: ${token}
@@ -59,8 +57,6 @@ cases:
   - persistence
   request:
     api_name: 查询短链接访问统计
-    method: GET
-    path: /api/short-link/admin/v1/stats
     headers: *id001
     params: *id002
   assertions:

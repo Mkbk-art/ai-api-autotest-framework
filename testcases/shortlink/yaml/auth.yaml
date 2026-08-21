@@ -15,8 +15,6 @@ cases:
   - authentication
   request:
     api_name: 短链接用户登录
-    method: POST
-    path: /api/short-link/admin/v1/user/login
     headers: &id001
       Content-Type: application/json
     json:
@@ -46,8 +44,6 @@ cases:
   - invalid_input
   request:
     api_name: 短链接用户登录
-    method: POST
-    path: /api/short-link/admin/v1/user/login
     headers: *id001
     json:
       username: ${config(shortlink,username)}
@@ -74,8 +70,6 @@ cases:
   - cache_consistency
   request:
     api_name: 短链接用户登录
-    method: POST
-    path: /api/short-link/admin/v1/user/login
     headers: *id001
     json:
       username: ${config(shortlink,username)}

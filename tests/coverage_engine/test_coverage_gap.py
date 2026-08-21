@@ -20,13 +20,13 @@ cases:
     operation_id: publicCovered
     level: smoke
     risks: [authentication]
-    request: {method: GET, path: /covered}
+    request: {}
     assertions: [{status_code: 200}]
   - id: unknown.binding
     name: unknown
     operation_id: doesNotExist
     level: core
-    request: {method: GET, path: /unknown}
+    request: {}
     assertions: [{status_code: 200}]
   - id: no.binding
     name: helper

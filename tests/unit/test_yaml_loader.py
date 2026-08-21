@@ -89,7 +89,7 @@ def test_v2_case_metadata_exposes_level_tags_and_stable_ids(tmp_path):
                         "level": "smoke",
                         "tags": ["order", "database"],
                         "operation_id": "queryOrder",
-                        "request": {"method": "GET", "path": "/orders/1"},
+                        "request": {},
                         "assertions": [{"status_code": 200}],
                     }
                 ],

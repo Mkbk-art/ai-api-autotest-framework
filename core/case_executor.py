@@ -9,6 +9,7 @@ from __future__ import annotations
 from contextlib import ExitStack
 from typing import Any
 
+from contracts.model import ApiContract
 from core.case_registry import CaseRegistry
 from core.case_spec import CaseSpec
 from core.context_provider import CaseHookRegistry, ContextProviderError, ContextProviderRegistry
@@ -22,11 +23,13 @@ class CaseExecutor:
         *,
         runner: Any,
         registry: CaseRegistry,
+        contract: ApiContract | None = None,
         providers: ContextProviderRegistry | None = None,
         hooks: CaseHookRegistry | None = None,
     ) -> None:
         self.runner = runner
         self.registry = registry
+        self.contract = contract
         self.providers = providers or ContextProviderRegistry()
         self.hooks = hooks or CaseHookRegistry()
         self._stack = ExitStack()
@@ -61,8 +64,13 @@ class CaseExecutor:
 
         self._resolving_contexts.append(name)
         try:
-            provider = self.providers.get(name)
-            result = provider(self)
+            spec = self.providers.get_spec(name)
+            # Declared dependencies are the single inspectable relation used by
+            # Stage 6; resolving them here also keeps runtime order consistent
+            # with the dependency graph. Legacy providers simply expose none.
+            for dependency in spec.requires:
+                self.ensure_context(dependency)
+            result = spec.provider(self)
             # Provider 可以返回 contextmanager；ExitStack 让 setup/cleanup 在整个 CaseExecutor
             # 生命周期内保持一致，也允许 Workflow 在多个原子 Case 之间共享同一上下文。
             if hasattr(result, "__enter__") and hasattr(result, "__exit__"):
@@ -77,6 +85,29 @@ class CaseExecutor:
 
     def _run_teardown(self, case: CaseSpec, response: Any) -> None:
         self._run_hooks(case, "teardown", response)
+
+    def _operation_for_case(self, case: CaseSpec):
+        """解析 Contract-bound Case 的当前 Operation；standalone Case 返回 None。"""
+        if case.operation_id is None:
+            return None
+        if self.contract is None:
+            raise RuntimeError(
+                f"Contract-bound case {case.case_id!r} requires an ApiContract before HTTP execution"
+            )
+        try:
+            return self.contract.get_operation(case.operation_id)
+        except KeyError as exc:
+            raise RuntimeError(
+                f"Contract-bound case {case.case_id!r} references unknown operation "
+                f"{case.operation_id!r}"
+            ) from exc
+
+    def build_runner_parts(
+        self, case_or_id: CaseSpec | str
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """把稳定 Case 解析成 ApiRunner 输入，供普通执行和 Python 编排复用。"""
+        case = self.registry.get(case_or_id) if isinstance(case_or_id, str) else case_or_id
+        return case.to_runner_parts(self._operation_for_case(case))
 
     def execute(
         self,
@@ -107,7 +138,7 @@ class CaseExecutor:
         teardown_completed = False
         self._run_hooks(case, "before_case", None)
         try:
-            base_info, test_case = case.to_runner_parts()
+            base_info, test_case = self.build_runner_parts(case)
             if case.poll is not None:
                 response = self.runner.run_polling(base_info, test_case)
             else:

@@ -108,3 +108,38 @@ def test_jenkins_post_only_consumes_current_build_reports():
     # Artifact 同样只归档当前 Build 的 reports，避免用户下载到其他构建的旧证据。
     assert 'reports/runs/jenkins-${env.BUILD_NUMBER}/**' in text
 
+
+def test_stage6_ci_exposes_thin_selection_controls_without_owning_selector_logic():
+    """CI may pass Stage 6 controls to run.py, but must not reimplement selection logic."""
+    workflow_text = WORKFLOW_PATH.read_text(encoding="utf-8")
+    jenkins_text = JENKINSFILE_PATH.read_text(encoding="utf-8")
+
+    # Jenkins keeps user control: full is available, auto is opt-in, and all means whole-project scope.
+    assert "name: 'SELECTION'" in jenkins_text
+    assert "choices: ['full', 'auto']" in jenkins_text
+    assert "name: 'SELECTION_ONLY'" in jenkins_text
+    assert "choices: ['smoke', 'core', 'regression', 'all']" in jenkins_text
+    assert '--selection' in jenkins_text
+    assert '--selection-only' in jenkins_text
+
+    # Baseline acceptance is a separate explicit lifecycle action and must never happen in normal CI runs.
+    assert "baseline init" not in jenkins_text
+    assert "baseline accept" not in jenkins_text
+
+    # Public CI proves the thin Stage 6 integration on the controlled Demo without replacing existing smoke.
+    assert "--env test --level all --selection auto --selection-only" in workflow_text
+    assert "reports/runs/github-actions-selection-preview/" in workflow_text
+    assert "python -m compileall -q ai contracts coverage_engine regression_engine" in workflow_text
+    assert "baseline init" not in workflow_text
+    assert "baseline accept" not in workflow_text
+
+    # CI only invokes supported entrypoints; it must not duplicate Contract Diff / selector internals.
+    forbidden_logic_tokens = (
+        "diff_contracts(",
+        "build_selection_plan(",
+        "analyze_dependencies(",
+    )
+    combined = workflow_text + "\n" + jenkins_text
+    for token in forbidden_logic_tokens:
+        assert token not in combined
+

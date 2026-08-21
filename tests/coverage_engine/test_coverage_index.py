@@ -19,7 +19,7 @@ cases:
     operation_id: createItem
     level: smoke
     risks: [persistence]
-    request: {method: POST, path: /api/items}
+    request: {}
     assertions: [{status_code: 200}]
 
   - id: item.lifecycle
@@ -29,14 +29,14 @@ cases:
     operations: [createItem, syncItem]
     risks: [state_transition, eventual_consistency]
     workflow: {handler: project.lifecycle}
-    request: {method: POST, path: /api/items/sync}
+    request: {}
     assertions: []
 
   - id: typo.case
     name: typo
     operation_id: missingOperation
     level: core
-    request: {method: GET, path: /api/missing}
+    request: {}
     assertions: [{status_code: 200}]
 
   - id: utility.health

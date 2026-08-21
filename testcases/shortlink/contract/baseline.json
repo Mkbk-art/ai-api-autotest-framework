@@ -1,0 +1,1287 @@
+{
+  "contract": {
+    "metadata": {
+      "default_coverage_scope": [
+        "external_gateway",
+        "external_direct"
+      ],
+      "source_kind": "reviewed_backend_source",
+      "source_note": "One-time API inventory extracted from the provided backend source. Framework Core does not parse Java/Spring."
+    },
+    "operations": [
+      {
+        "id": "shortlinkGroupCreate",
+        "metadata": {
+          "request_model": "ShortLinkGroupSaveReqDTO",
+          "source_controller": "GroupController"
+        },
+        "method": "POST",
+        "path": "/api/short-link/admin/v1/group",
+        "request_body": {
+          "content_type": "application/json",
+          "fields": [
+            {
+              "name": "name",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "model": "ShortLinkGroupSaveReqDTO",
+          "required": true
+        },
+        "responses": [
+          {
+            "model": "Result<Void>",
+            "status": "200"
+          }
+        ],
+        "service": "admin",
+        "summary": "新增短链接分组",
+        "visibility": "external_gateway"
+      },
+      {
+        "id": "shortlinkGroupList",
+        "metadata": {
+          "source_controller": "GroupController"
+        },
+        "method": "GET",
+        "path": "/api/short-link/admin/v1/group",
+        "responses": [
+          {
+            "model": "Result<List<ShortLinkGroupRespDTO>>",
+            "status": "200"
+          }
+        ],
+        "service": "admin",
+        "summary": "查询短链接分组集合",
+        "visibility": "external_gateway"
+      },
+      {
+        "id": "shortlinkGroupUpdate",
+        "metadata": {
+          "request_model": "ShortLinkGroupUpdateReqDTO",
+          "source_controller": "GroupController"
+        },
+        "method": "PUT",
+        "path": "/api/short-link/admin/v1/group",
+        "request_body": {
+          "content_type": "application/json",
+          "fields": [
+            {
+              "name": "gid",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "name": "name",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "model": "ShortLinkGroupUpdateReqDTO",
+          "required": true
+        },
+        "responses": [
+          {
+            "model": "Result<Void>",
+            "status": "200"
+          }
+        ],
+        "service": "admin",
+        "summary": "修改短链接分组名称",
+        "visibility": "external_gateway"
+      },
+      {
+        "id": "shortlinkGroupDelete",
+        "metadata": {
+          "request_shape": "query: gid",
+          "source_controller": "GroupController"
+        },
+        "method": "DELETE",
+        "path": "/api/short-link/admin/v1/group",
+        "responses": [
+          {
+            "model": "Result<Void>",
+            "status": "200"
+          }
+        ],
+        "service": "admin",
+        "summary": "删除短链接分组",
+        "visibility": "external_gateway"
+      },
+      {
+        "id": "shortlinkGroupSort",
+        "metadata": {
+          "request_shape": "List<ShortLinkGroupSortReqDTO>",
+          "source_controller": "GroupController"
+        },
+        "method": "POST",
+        "path": "/api/short-link/admin/v1/group/sort",
+        "responses": [
+          {
+            "model": "Result<Void>",
+            "status": "200"
+          }
+        ],
+        "service": "admin",
+        "summary": "排序短链接分组",
+        "visibility": "external_gateway"
+      },
+      {
+        "id": "shortlinkRecycleSave",
+        "metadata": {
+          "request_model": "RecycleBinSaveReqDTO",
+          "source_controller": "RecycleBinController"
+        },
+        "method": "POST",
+        "path": "/api/short-link/admin/v1/recycle-bin/save",
+        "request_body": {
+          "content_type": "application/json",
+          "fields": [
+            {
+              "name": "gid",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "name": "fullShortUrl",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "model": "RecycleBinSaveReqDTO",
+          "required": true
+        },
+        "responses": [
+          {
+            "model": "Result<Void>",
+            "status": "200"
+          }
+        ],
+        "service": "admin",
+        "summary": "保存到回收站",
+        "visibility": "external_gateway"
+      },
+      {
+        "id": "shortlinkRecyclePage",
+        "metadata": {
+          "request_model": "ShortLinkRecycleBinPageReqDTO",
+          "source_controller": "RecycleBinController"
+        },
+        "method": "GET",
+        "path": "/api/short-link/admin/v1/recycle-bin/page",
+        "responses": [
+          {
+            "model": "Result<Page<ShortLinkPageRespDTO>>",
+            "status": "200"
+          }
+        ],
+        "service": "admin",
+        "summary": "分页查询回收站短链接",
+        "visibility": "external_gateway"
+      },
+      {
+        "id": "shortlinkRecycleRecover",
+        "metadata": {
+          "request_model": "RecycleBinRecoverReqDTO",
+          "source_controller": "RecycleBinController"
+        },
+        "method": "POST",
+        "path": "/api/short-link/admin/v1/recycle-bin/recover",
+        "request_body": {
+          "content_type": "application/json",
+          "fields": [
+            {
+              "name": "gid",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "name": "fullShortUrl",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "model": "RecycleBinRecoverReqDTO",
+          "required": true
+        },
+        "responses": [
+          {
+            "model": "Result<Void>",
+            "status": "200"
+          }
+        ],
+        "service": "admin",
+        "summary": "恢复短链接",
+        "visibility": "external_gateway"
+      },
+      {
+        "id": "shortlinkRecycleRemove",
+        "metadata": {
+          "request_model": "RecycleBinRemoveReqDTO",
+          "source_controller": "RecycleBinController"
+        },
+        "method": "POST",
+        "path": "/api/short-link/admin/v1/recycle-bin/remove",
+        "request_body": {
+          "content_type": "application/json",
+          "fields": [
+            {
+              "name": "gid",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "name": "fullShortUrl",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "model": "RecycleBinRemoveReqDTO",
+          "required": true
+        },
+        "responses": [
+          {
+            "model": "Result<Void>",
+            "status": "200"
+          }
+        ],
+        "service": "admin",
+        "summary": "移除回收站短链接",
+        "visibility": "external_gateway"
+      },
+      {
+        "id": "shortlinkCreate",
+        "metadata": {
+          "request_model": "ShortLinkCreateReqDTO",
+          "source_controller": "ShortLinkController"
+        },
+        "method": "POST",
+        "path": "/api/short-link/admin/v1/create",
+        "request_body": {
+          "content_type": "application/json",
+          "fields": [
+            {
+              "name": "domain",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "name": "originUrl",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "name": "gid",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "name": "createdType",
+              "required": false,
+              "type": "integer"
+            },
+            {
+              "name": "validDateType",
+              "required": false,
+              "type": "integer"
+            },
+            {
+              "name": "validDate",
+              "required": false,
+              "type": "datetime"
+            },
+            {
+              "name": "describe",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "model": "ShortLinkCreateReqDTO",
+          "required": true
+        },
+        "responses": [
+          {
+            "model": "Result<ShortLinkCreateRespDTO>",
+            "status": "200"
+          }
+        ],
+        "service": "admin",
+        "summary": "创建短链接",
+        "visibility": "external_gateway"
+      },
+      {
+        "id": "shortlinkBatchCreate",
+        "metadata": {
+          "request_model": "ShortLinkBatchCreateReqDTO",
+          "source_controller": "ShortLinkController"
+        },
+        "method": "POST",
+        "path": "/api/short-link/admin/v1/create/batch",
+        "request_body": {
+          "content_type": "application/json",
+          "fields": [
+            {
+              "name": "originUrls",
+              "required": false,
+              "type": "list[string]"
+            },
+            {
+              "name": "describes",
+              "required": false,
+              "type": "list[string]"
+            },
+            {
+              "name": "gid",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "name": "createdType",
+              "required": false,
+              "type": "integer"
+            },
+            {
+              "name": "validDateType",
+              "required": false,
+              "type": "integer"
+            },
+            {
+              "name": "validDate",
+              "required": false,
+              "type": "datetime"
+            }
+          ],
+          "model": "ShortLinkBatchCreateReqDTO",
+          "required": true
+        },
+        "responses": [
+          {
+            "status": "200"
+          }
+        ],
+        "service": "admin",
+        "summary": "批量创建短链接",
+        "visibility": "external_gateway"
+      },
+      {
+        "id": "shortlinkUpdate",
+        "metadata": {
+          "request_model": "ShortLinkUpdateReqDTO",
+          "source_controller": "ShortLinkController"
+        },
+        "method": "POST",
+        "path": "/api/short-link/admin/v1/update",
+        "request_body": {
+          "content_type": "application/json",
+          "fields": [
+            {
+              "name": "originUrl",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "name": "fullShortUrl",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "name": "originGid",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "name": "gid",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "name": "validDateType",
+              "required": false,
+              "type": "integer"
+            },
+            {
+              "name": "validDate",
+              "required": false,
+              "type": "datetime"
+            },
+            {
+              "name": "describe",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "model": "ShortLinkUpdateReqDTO",
+          "required": true
+        },
+        "responses": [
+          {
+            "model": "Result<Void>",
+            "status": "200"
+          }
+        ],
+        "service": "admin",
+        "summary": "修改短链接",
+        "visibility": "external_gateway"
+      },
+      {
+        "id": "shortlinkPage",
+        "metadata": {
+          "request_model": "ShortLinkPageReqDTO",
+          "source_controller": "ShortLinkController"
+        },
+        "method": "GET",
+        "path": "/api/short-link/admin/v1/page",
+        "responses": [
+          {
+            "model": "Result<Page<ShortLinkPageRespDTO>>",
+            "status": "200"
+          }
+        ],
+        "service": "admin",
+        "summary": "分页查询短链接",
+        "visibility": "external_gateway"
+      },
+      {
+        "id": "shortlinkStats",
+        "metadata": {
+          "request_model": "ShortLinkStatsReqDTO",
+          "source_controller": "ShortLinkStatsController"
+        },
+        "method": "GET",
+        "path": "/api/short-link/admin/v1/stats",
+        "responses": [
+          {
+            "model": "Result<ShortLinkStatsRespDTO>",
+            "status": "200"
+          }
+        ],
+        "service": "admin",
+        "summary": "查询单短链指定时间监控数据",
+        "visibility": "external_gateway"
+      },
+      {
+        "id": "shortlinkStatsGroup",
+        "metadata": {
+          "request_model": "ShortLinkGroupStatsReqDTO",
+          "source_controller": "ShortLinkStatsController"
+        },
+        "method": "GET",
+        "path": "/api/short-link/admin/v1/stats/group",
+        "responses": [
+          {
+            "model": "Result<ShortLinkStatsRespDTO>",
+            "status": "200"
+          }
+        ],
+        "service": "admin",
+        "summary": "查询分组监控数据",
+        "visibility": "external_gateway"
+      },
+      {
+        "id": "shortlinkStatsAccessRecord",
+        "metadata": {
+          "request_model": "ShortLinkStatsAccessRecordReqDTO",
+          "source_controller": "ShortLinkStatsController"
+        },
+        "method": "GET",
+        "path": "/api/short-link/admin/v1/stats/access-record",
+        "responses": [
+          {
+            "model": "Result<Page<ShortLinkStatsAccessRecordRespDTO>>",
+            "status": "200"
+          }
+        ],
+        "service": "admin",
+        "summary": "分页查询单短链访问记录",
+        "visibility": "external_gateway"
+      },
+      {
+        "id": "shortlinkStatsGroupAccessRecord",
+        "metadata": {
+          "request_model": "ShortLinkGroupStatsAccessRecordReqDTO",
+          "source_controller": "ShortLinkStatsController"
+        },
+        "method": "GET",
+        "path": "/api/short-link/admin/v1/stats/access-record/group",
+        "responses": [
+          {
+            "model": "Result<Page<ShortLinkStatsAccessRecordRespDTO>>",
+            "status": "200"
+          }
+        ],
+        "service": "admin",
+        "summary": "分页查询分组访问记录",
+        "visibility": "external_gateway"
+      },
+      {
+        "id": "shortlinkUrlTitle",
+        "metadata": {
+          "request_shape": "query: url",
+          "source_controller": "UrlTitleController"
+        },
+        "method": "GET",
+        "path": "/api/short-link/admin/v1/title",
+        "responses": [
+          {
+            "model": "Result<String>",
+            "status": "200"
+          }
+        ],
+        "service": "admin",
+        "summary": "根据 URL 获取网站标题",
+        "visibility": "external_gateway"
+      },
+      {
+        "id": "shortlinkUserGet",
+        "metadata": {
+          "request_shape": "path: username",
+          "source_controller": "UserController"
+        },
+        "method": "GET",
+        "path": "/api/short-link/admin/v1/user/{username}",
+        "responses": [
+          {
+            "model": "Result<UserRespDTO>",
+            "status": "200"
+          }
+        ],
+        "service": "admin",
+        "summary": "查询用户信息",
+        "visibility": "external_gateway"
+      },
+      {
+        "id": "shortlinkUserGetActual",
+        "metadata": {
+          "request_shape": "path: username",
+          "source_controller": "UserController"
+        },
+        "method": "GET",
+        "path": "/api/short-link/admin/v1/actual/user/{username}",
+        "responses": [
+          {
+            "model": "Result<UserActualRespDTO>",
+            "status": "200"
+          }
+        ],
+        "service": "admin",
+        "summary": "查询无脱敏用户信息",
+        "visibility": "external_gateway"
+      },
+      {
+        "id": "shortlinkUserHasUsername",
+        "metadata": {
+          "request_shape": "query: username",
+          "source_controller": "UserController"
+        },
+        "method": "GET",
+        "path": "/api/short-link/admin/v1/user/has-username",
+        "responses": [
+          {
+            "model": "Result<Boolean>",
+            "status": "200"
+          }
+        ],
+        "service": "admin",
+        "summary": "查询用户名是否存在",
+        "visibility": "external_gateway"
+      },
+      {
+        "id": "shortlinkUserRegister",
+        "metadata": {
+          "request_model": "UserRegisterReqDTO",
+          "source_controller": "UserController"
+        },
+        "method": "POST",
+        "path": "/api/short-link/admin/v1/user",
+        "request_body": {
+          "content_type": "application/json",
+          "fields": [
+            {
+              "name": "username",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "name": "password",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "name": "realName",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "name": "phone",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "name": "mail",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "model": "UserRegisterReqDTO",
+          "required": true
+        },
+        "responses": [
+          {
+            "model": "Result<Void>",
+            "status": "200"
+          }
+        ],
+        "service": "admin",
+        "summary": "注册用户",
+        "visibility": "external_gateway"
+      },
+      {
+        "id": "shortlinkUserUpdate",
+        "metadata": {
+          "request_model": "UserUpdateReqDTO",
+          "source_controller": "UserController"
+        },
+        "method": "PUT",
+        "path": "/api/short-link/admin/v1/user",
+        "request_body": {
+          "content_type": "application/json",
+          "fields": [
+            {
+              "name": "username",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "name": "password",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "name": "realName",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "name": "phone",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "name": "mail",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "model": "UserUpdateReqDTO",
+          "required": true
+        },
+        "responses": [
+          {
+            "model": "Result<Void>",
+            "status": "200"
+          }
+        ],
+        "service": "admin",
+        "summary": "修改用户",
+        "visibility": "external_gateway"
+      },
+      {
+        "id": "shortlinkUserLogin",
+        "metadata": {
+          "request_model": "UserLoginReqDTO",
+          "source_controller": "UserController"
+        },
+        "method": "POST",
+        "path": "/api/short-link/admin/v1/user/login",
+        "request_body": {
+          "content_type": "application/json",
+          "fields": [
+            {
+              "name": "username",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "name": "password",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "model": "UserLoginReqDTO",
+          "required": true
+        },
+        "responses": [
+          {
+            "model": "Result<UserLoginRespDTO>",
+            "status": "200"
+          }
+        ],
+        "service": "admin",
+        "summary": "用户登录",
+        "visibility": "external_gateway"
+      },
+      {
+        "id": "shortlinkUserCheckLogin",
+        "metadata": {
+          "request_shape": "query: username, token",
+          "source_controller": "UserController"
+        },
+        "method": "GET",
+        "path": "/api/short-link/admin/v1/user/check-login",
+        "responses": [
+          {
+            "model": "Result<Boolean>",
+            "status": "200"
+          }
+        ],
+        "service": "admin",
+        "summary": "检查用户登录状态",
+        "visibility": "external_gateway"
+      },
+      {
+        "id": "shortlinkUserLogout",
+        "metadata": {
+          "request_shape": "query: username, token",
+          "source_controller": "UserController"
+        },
+        "method": "DELETE",
+        "path": "/api/short-link/admin/v1/user/logout",
+        "responses": [
+          {
+            "model": "Result<Void>",
+            "status": "200"
+          }
+        ],
+        "service": "admin",
+        "summary": "用户退出登录",
+        "visibility": "external_gateway"
+      },
+      {
+        "id": "shortlinkRedirect",
+        "metadata": {
+          "request_shape": "path: short-uri",
+          "source_controller": "ShortLinkController"
+        },
+        "method": "GET",
+        "path": "/{short-uri}",
+        "responses": [
+          {
+            "model": "HTTP redirect",
+            "status": "302"
+          }
+        ],
+        "service": "project",
+        "summary": "短链接跳转",
+        "visibility": "external_direct"
+      },
+      {
+        "id": "projectShortlinkRecycleSave",
+        "metadata": {
+          "request_model": "RecycleBinSaveReqDTO",
+          "source_controller": "RecycleBinController"
+        },
+        "method": "POST",
+        "path": "/api/short-link/v1/recycle-bin/save",
+        "request_body": {
+          "content_type": "application/json",
+          "fields": [
+            {
+              "name": "gid",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "name": "fullShortUrl",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "model": "RecycleBinSaveReqDTO",
+          "required": true
+        },
+        "responses": [
+          {
+            "model": "Result<Void>",
+            "status": "200"
+          }
+        ],
+        "service": "project",
+        "summary": "Project 保存到回收站",
+        "visibility": "internal_service"
+      },
+      {
+        "id": "projectShortlinkRecyclePage",
+        "metadata": {
+          "request_model": "ShortLinkRecycleBinPageReqDTO",
+          "source_controller": "RecycleBinController"
+        },
+        "method": "GET",
+        "path": "/api/short-link/v1/recycle-bin/page",
+        "responses": [
+          {
+            "model": "Result<Page<ShortLinkPageRespDTO>>",
+            "status": "200"
+          }
+        ],
+        "service": "project",
+        "summary": "Project 分页查询回收站",
+        "visibility": "internal_service"
+      },
+      {
+        "id": "projectShortlinkRecycleRecover",
+        "metadata": {
+          "request_model": "RecycleBinRecoverReqDTO",
+          "source_controller": "RecycleBinController"
+        },
+        "method": "POST",
+        "path": "/api/short-link/v1/recycle-bin/recover",
+        "request_body": {
+          "content_type": "application/json",
+          "fields": [
+            {
+              "name": "gid",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "name": "fullShortUrl",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "model": "RecycleBinRecoverReqDTO",
+          "required": true
+        },
+        "responses": [
+          {
+            "model": "Result<Void>",
+            "status": "200"
+          }
+        ],
+        "service": "project",
+        "summary": "Project 恢复短链接",
+        "visibility": "internal_service"
+      },
+      {
+        "id": "projectShortlinkRecycleRemove",
+        "metadata": {
+          "request_model": "RecycleBinRemoveReqDTO",
+          "source_controller": "RecycleBinController"
+        },
+        "method": "POST",
+        "path": "/api/short-link/v1/recycle-bin/remove",
+        "request_body": {
+          "content_type": "application/json",
+          "fields": [
+            {
+              "name": "gid",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "name": "fullShortUrl",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "model": "RecycleBinRemoveReqDTO",
+          "required": true
+        },
+        "responses": [
+          {
+            "model": "Result<Void>",
+            "status": "200"
+          }
+        ],
+        "service": "project",
+        "summary": "Project 移除回收站短链接",
+        "visibility": "internal_service"
+      },
+      {
+        "id": "projectShortlinkCreate",
+        "metadata": {
+          "request_model": "ShortLinkCreateReqDTO",
+          "source_controller": "ShortLinkController"
+        },
+        "method": "POST",
+        "path": "/api/short-link/v1/create",
+        "request_body": {
+          "content_type": "application/json",
+          "fields": [
+            {
+              "name": "domain",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "name": "originUrl",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "name": "gid",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "name": "createdType",
+              "required": false,
+              "type": "integer"
+            },
+            {
+              "name": "validDateType",
+              "required": false,
+              "type": "integer"
+            },
+            {
+              "name": "validDate",
+              "required": false,
+              "type": "datetime"
+            },
+            {
+              "name": "describe",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "model": "ShortLinkCreateReqDTO",
+          "required": true
+        },
+        "responses": [
+          {
+            "model": "Result<ShortLinkCreateRespDTO>",
+            "status": "200"
+          }
+        ],
+        "service": "project",
+        "summary": "Project 创建短链接",
+        "visibility": "internal_service"
+      },
+      {
+        "id": "projectShortlinkCreateByLock",
+        "metadata": {
+          "request_model": "ShortLinkCreateReqDTO",
+          "source_controller": "ShortLinkController"
+        },
+        "method": "POST",
+        "path": "/api/short-link/v1/create/by-lock",
+        "request_body": {
+          "content_type": "application/json",
+          "fields": [
+            {
+              "name": "domain",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "name": "originUrl",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "name": "gid",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "name": "createdType",
+              "required": false,
+              "type": "integer"
+            },
+            {
+              "name": "validDateType",
+              "required": false,
+              "type": "integer"
+            },
+            {
+              "name": "validDate",
+              "required": false,
+              "type": "datetime"
+            },
+            {
+              "name": "describe",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "model": "ShortLinkCreateReqDTO",
+          "required": true
+        },
+        "responses": [
+          {
+            "model": "Result<ShortLinkCreateRespDTO>",
+            "status": "200"
+          }
+        ],
+        "service": "project",
+        "summary": "Project 通过分布式锁创建短链接",
+        "visibility": "internal_service"
+      },
+      {
+        "id": "projectShortlinkBatchCreate",
+        "metadata": {
+          "request_model": "ShortLinkBatchCreateReqDTO",
+          "source_controller": "ShortLinkController"
+        },
+        "method": "POST",
+        "path": "/api/short-link/v1/create/batch",
+        "request_body": {
+          "content_type": "application/json",
+          "fields": [
+            {
+              "name": "originUrls",
+              "required": false,
+              "type": "list[string]"
+            },
+            {
+              "name": "describes",
+              "required": false,
+              "type": "list[string]"
+            },
+            {
+              "name": "gid",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "name": "createdType",
+              "required": false,
+              "type": "integer"
+            },
+            {
+              "name": "validDateType",
+              "required": false,
+              "type": "integer"
+            },
+            {
+              "name": "validDate",
+              "required": false,
+              "type": "datetime"
+            }
+          ],
+          "model": "ShortLinkBatchCreateReqDTO",
+          "required": true
+        },
+        "responses": [
+          {
+            "status": "200"
+          }
+        ],
+        "service": "project",
+        "summary": "Project 批量创建短链接",
+        "visibility": "internal_service"
+      },
+      {
+        "id": "projectShortlinkUpdate",
+        "metadata": {
+          "request_model": "ShortLinkUpdateReqDTO",
+          "source_controller": "ShortLinkController"
+        },
+        "method": "POST",
+        "path": "/api/short-link/v1/update",
+        "request_body": {
+          "content_type": "application/json",
+          "fields": [
+            {
+              "name": "originUrl",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "name": "fullShortUrl",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "name": "originGid",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "name": "gid",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "name": "validDateType",
+              "required": false,
+              "type": "integer"
+            },
+            {
+              "name": "validDate",
+              "required": false,
+              "type": "datetime"
+            },
+            {
+              "name": "describe",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "model": "ShortLinkUpdateReqDTO",
+          "required": true
+        },
+        "responses": [
+          {
+            "model": "Result<Void>",
+            "status": "200"
+          }
+        ],
+        "service": "project",
+        "summary": "Project 修改短链接",
+        "visibility": "internal_service"
+      },
+      {
+        "id": "projectShortlinkPage",
+        "metadata": {
+          "request_model": "ShortLinkPageReqDTO",
+          "source_controller": "ShortLinkController"
+        },
+        "method": "GET",
+        "path": "/api/short-link/v1/page",
+        "responses": [
+          {
+            "model": "Result<Page<ShortLinkPageRespDTO>>",
+            "status": "200"
+          }
+        ],
+        "service": "project",
+        "summary": "Project 分页查询短链接",
+        "visibility": "internal_service"
+      },
+      {
+        "id": "projectShortlinkCount",
+        "metadata": {
+          "request_shape": "query: requestParam(List<String>)",
+          "source_controller": "ShortLinkController"
+        },
+        "method": "GET",
+        "path": "/api/short-link/v1/count",
+        "responses": [
+          {
+            "model": "Result<List<GroupShortLinkCountQueryRespDTO>>",
+            "status": "200"
+          }
+        ],
+        "service": "project",
+        "summary": "Project 查询分组短链接数量",
+        "visibility": "internal_service"
+      },
+      {
+        "id": "projectShortlinkStats",
+        "metadata": {
+          "request_model": "ShortLinkStatsReqDTO",
+          "source_controller": "ShortLinkStatsController"
+        },
+        "method": "GET",
+        "path": "/api/short-link/v1/stats",
+        "responses": [
+          {
+            "model": "Result<ShortLinkStatsRespDTO>",
+            "status": "200"
+          }
+        ],
+        "service": "project",
+        "summary": "Project 单短链监控数据",
+        "visibility": "internal_service"
+      },
+      {
+        "id": "projectShortlinkStatsGroup",
+        "metadata": {
+          "request_model": "ShortLinkGroupStatsReqDTO",
+          "source_controller": "ShortLinkStatsController"
+        },
+        "method": "GET",
+        "path": "/api/short-link/v1/stats/group",
+        "responses": [
+          {
+            "model": "Result<ShortLinkStatsRespDTO>",
+            "status": "200"
+          }
+        ],
+        "service": "project",
+        "summary": "Project 分组监控数据",
+        "visibility": "internal_service"
+      },
+      {
+        "id": "projectShortlinkStatsAccessRecord",
+        "metadata": {
+          "request_model": "ShortLinkStatsAccessRecordReqDTO",
+          "source_controller": "ShortLinkStatsController"
+        },
+        "method": "GET",
+        "path": "/api/short-link/v1/stats/access-record",
+        "responses": [
+          {
+            "model": "Result<Page<ShortLinkStatsAccessRecordRespDTO>>",
+            "status": "200"
+          }
+        ],
+        "service": "project",
+        "summary": "Project 单短链访问记录",
+        "visibility": "internal_service"
+      },
+      {
+        "id": "projectShortlinkStatsGroupAccessRecord",
+        "metadata": {
+          "request_model": "ShortLinkGroupStatsAccessRecordReqDTO",
+          "source_controller": "ShortLinkStatsController"
+        },
+        "method": "GET",
+        "path": "/api/short-link/v1/stats/access-record/group",
+        "responses": [
+          {
+            "model": "Result<Page<ShortLinkStatsAccessRecordRespDTO>>",
+            "status": "200"
+          }
+        ],
+        "service": "project",
+        "summary": "Project 分组访问记录",
+        "visibility": "internal_service"
+      },
+      {
+        "id": "projectShortlinkUrlTitle",
+        "metadata": {
+          "request_shape": "query: url",
+          "source_controller": "UrlTitleController"
+        },
+        "method": "GET",
+        "path": "/api/short-link/v1/title",
+        "responses": [
+          {
+            "model": "Result<String>",
+            "status": "200"
+          }
+        ],
+        "service": "project",
+        "summary": "Project 根据 URL 获取网站标题",
+        "visibility": "internal_service"
+      },
+      {
+        "id": "shortlinkNotfoundPage",
+        "metadata": {
+          "source_controller": "ShortLinkNotfoundController"
+        },
+        "method": "REQUEST",
+        "path": "/page/notfound",
+        "responses": [
+          {
+            "model": "String / page",
+            "status": "200"
+          }
+        ],
+        "service": "project",
+        "summary": "短链接不存在页面",
+        "visibility": "page_internal"
+      }
+    ],
+    "project": "shortlink",
+    "source_kind": "static_manifest",
+    "version": "1"
+  },
+  "created_at": "2026-08-21T04:57:19.910839+00:00",
+  "project": "shortlink",
+  "snapshot_schema_version": 1,
+  "source_digest": "6d9b0e203d1e1bad0def535dbaef1f656d263ffbe322b70bb62b4d41ff4f15ae"
+}

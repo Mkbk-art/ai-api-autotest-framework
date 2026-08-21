@@ -9,8 +9,6 @@ cases:
     risks: [authentication]
     request:
       api_name: API 平台登录
-      method: POST
-      path: /api/v1/auth/login
       headers:
         Content-Type: application/json;charset=UTF-8
       json:
@@ -31,8 +29,6 @@ cases:
     risks: [authentication, invalid_input]
     request:
       api_name: API 平台登录
-      method: POST
-      path: /api/v1/auth/login
       headers:
         Content-Type: application/json;charset=UTF-8
       json:

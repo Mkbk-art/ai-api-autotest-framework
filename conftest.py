@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 # API_TEST_ENV 由 run.py 设置；直接运行 pytest 时默认使用 test 环境。
-import importlib
+import json
 import os
 # Path 用于扫描各项目 YAML 并在 collection 前自动注册它们声明的 markers。
 from pathlib import Path
@@ -17,21 +17,23 @@ from typing import Any
 # Pytest 提供 collection hooks 与通用 fixture 生命周期。
 import pytest
 
+from contracts.provider import load_contract_from_config
 # ApiRunner 是所有项目共享的 YAML 请求/提取/断言执行入口。
 from core.api_runner import ApiRunner
 from core.case_executor import CaseExecutor
 from core.case_registry import CaseRegistry
-from core.case_spec import CaseSpecError, load_case_specs
-from core.context_provider import CaseHookRegistry, ContextProviderRegistry
+from core.case_spec import CaseSpec, CaseSpecError, load_case_specs
 # 旧版 YAML Marker Loader 仅在 Shortlink V1 迁移期间提供兼容；V2 直接读取 CaseSpec。
 from core.case_loader import get_testcase_marker_names
 # ConfigManager 负责合并 config.yaml 与当前命名环境 YAML。
 from core.config_manager import ConfigManager
+from core.project_extensions import load_project_extensions
 # VariableContext 保证每条测试的动态变量互相隔离。
 from core.variable_context import VariableContext
 # MockApiServer 只由 use_mock=true 的环境按需启动。
 from mock_server.server import MockApiServer
 # PROJECT_ROOT 让 YAML marker 扫描不依赖启动命令的当前工作目录。
+from utils import allure_compat
 from utils.project_paths import PROJECT_ROOT
 
 
@@ -115,6 +117,98 @@ def _case_registry(config) -> CaseRegistry:
     return registry
 
 
+def _case_spec_from_item(item) -> CaseSpec | None:
+    """Return the structured CaseSpec carried by either declarative or workflow items."""
+    callspec = getattr(item, "callspec", None)
+    params = getattr(callspec, "params", None)
+    if not isinstance(params, dict):
+        return None
+    for value in params.values():
+        if isinstance(value, CaseSpec):
+            return value
+    return None
+
+
+def _selection_plan_data(config) -> dict[str, Any] | None:
+    """Load and cache the machine-readable SelectionPlan supplied by run.py AUTO mode."""
+    cached = getattr(config, "_api_autotest_selection_plan", None)
+    if isinstance(cached, dict):
+        return cached
+    raw_path = os.environ.get("API_TEST_SELECTION_FILE")
+    if not raw_path:
+        return None
+    path = Path(raw_path).expanduser()
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise pytest.UsageError(f"Unable to read SelectionPlan: {path}: {exc}") from exc
+    if not isinstance(data, dict):
+        raise pytest.UsageError(f"SelectionPlan must be a JSON object: {path}")
+    selected = data.get("selected_case_ids")
+    if not isinstance(selected, list) or not all(
+        isinstance(case_id, str) and case_id.strip() for case_id in selected
+    ):
+        raise pytest.UsageError(
+            f"SelectionPlan.selected_case_ids must be a list of non-empty strings: {path}"
+        )
+    if len(selected) != len(set(selected)):
+        raise pytest.UsageError(f"SelectionPlan contains duplicate selected case IDs: {path}")
+    setattr(config, "_api_autotest_selection_plan", data)
+    return data
+
+
+def pytest_collection_modifyitems(config, items) -> None:
+    """Apply an AUTO SelectionPlan by stable CaseSpec.case_id without owning selection logic."""
+    data = _selection_plan_data(config)
+    if data is None:
+        return
+    selected_ids = set(data["selected_case_ids"])
+    structured: dict[str, Any] = {}
+    for item in items:
+        case = _case_spec_from_item(item)
+        if case is None:
+            continue
+        if case.case_id in structured:
+            raise pytest.UsageError(f"Duplicate collected case_id: {case.case_id}")
+        structured[case.case_id] = item
+
+    missing = selected_ids.difference(structured)
+    if missing:
+        names = ", ".join(sorted(missing))
+        raise pytest.UsageError(f"SelectionPlan cases were not collected: {names}")
+
+    deselected = [item for case_id, item in structured.items() if case_id not in selected_ids]
+    if not deselected:
+        return
+    deselected_ids = {id(item) for item in deselected}
+    items[:] = [item for item in items if id(item) not in deselected_ids]
+    config.hook.pytest_deselected(items=deselected)
+
+
+def pytest_runtest_setup(item) -> None:
+    """Attach per-case AUTO selection reasons to Allure without changing test semantics."""
+    case = _case_spec_from_item(item)
+    if case is None:
+        return
+    data = _selection_plan_data(item.config)
+    if data is None:
+        return
+    selected_cases = data.get("selected_cases", [])
+    if not isinstance(selected_cases, list):
+        return
+    evidence = next(
+        (entry for entry in selected_cases if isinstance(entry, dict) and entry.get("case_id") == case.case_id),
+        None,
+    )
+    if evidence is None:
+        return
+    allure_compat.attach(
+        json.dumps(evidence, ensure_ascii=False, indent=2, sort_keys=True),
+        "Regression Selection Evidence",
+        allure_compat.attachment_type.JSON,
+    )
+
+
 def pytest_generate_tests(metafunc) -> None:
     """把当前项目全部 declarative Case 注入唯一 Generic Pytest Runtime。"""
     if "yaml_case" not in metafunc.fixturenames:
@@ -172,29 +266,25 @@ def case_registry(request):
 @pytest.fixture(scope="session")
 def project_extensions(request):
     """按环境选择的项目加载 Context Provider 与 Case Hook。"""
-    providers = ContextProviderRegistry()
-    hooks = CaseHookRegistry()
-    for project_name in sorted(_include_suites(request.config)):
-        module_name = f"testcases.{project_name}.context"
-        try:
-            module = importlib.import_module(module_name)
-        except ModuleNotFoundError as exc:
-            if exc.name == module_name:
-                continue
-            raise
-        register = getattr(module, "register_extensions", None)
-        if register is not None:
-            register(providers, hooks)
-    return providers, hooks
+    return load_project_extensions(_include_suites(request.config))
+
+
+@pytest.fixture(scope="session")
+def api_contract(runtime_config):
+    """按当前环境加载一次 ApiContract；未配置 Contract 的 standalone 项目返回 None。"""
+    if not isinstance(runtime_config.get("contract"), dict):
+        return None
+    return load_contract_from_config(runtime_config, project_root=PROJECT_ROOT)
 
 
 @pytest.fixture
-def case_executor(request_base, case_registry, project_extensions):
-    """为当前 Pytest Item 创建统一 CaseExecutor，并保证 Provider cleanup 被执行。"""
+def case_executor(request_base, case_registry, project_extensions, api_contract):
+    """为当前 Pytest Item 创建统一 CaseExecutor，并注入当前 Contract 与 Provider 生命周期。"""
     providers, hooks = project_extensions
     with CaseExecutor(
         runner=request_base,
         registry=case_registry,
+        contract=api_contract,
         providers=providers,
         hooks=hooks,
     ) as executor:

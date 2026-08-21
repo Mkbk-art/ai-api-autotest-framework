@@ -202,6 +202,75 @@ class Operation:
         return data
 
 
+
+def _field_from_dict(data: Mapping[str, Any]) -> SchemaField:
+    if not isinstance(data, Mapping):
+        raise ContractError("schema field must be a mapping")
+    return SchemaField(
+        name=data.get("name"),
+        schema_type=data.get("type"),
+        required=bool(data.get("required", False)),
+        format=data.get("format"),
+        nullable=data.get("nullable"),
+        description=data.get("description"),
+        fields=tuple(_field_from_dict(item) for item in data.get("fields", ()) or ()),
+    )
+
+
+def _parameter_from_dict(data: Mapping[str, Any]) -> Parameter:
+    if not isinstance(data, Mapping):
+        raise ContractError("parameter must be a mapping")
+    return Parameter(
+        name=data.get("name"),
+        location=data.get("in"),
+        required=bool(data.get("required", False)),
+        schema_type=data.get("type"),
+        format=data.get("format"),
+        description=data.get("description"),
+    )
+
+
+def _request_body_from_dict(data: Mapping[str, Any] | None) -> RequestBody | None:
+    if data is None:
+        return None
+    if not isinstance(data, Mapping):
+        raise ContractError("request_body must be a mapping")
+    return RequestBody(
+        required=bool(data.get("required", False)),
+        content_type=data.get("content_type"),
+        model=data.get("model"),
+        fields=tuple(_field_from_dict(item) for item in data.get("fields", ()) or ()),
+    )
+
+
+def _response_from_dict(data: Mapping[str, Any]) -> ResponseSpec:
+    if not isinstance(data, Mapping):
+        raise ContractError("response must be a mapping")
+    return ResponseSpec(
+        status_code=str(data.get("status")),
+        content_type=data.get("content_type"),
+        model=data.get("model"),
+        fields=tuple(_field_from_dict(item) for item in data.get("fields", ()) or ()),
+        description=data.get("description"),
+    )
+
+
+def _operation_from_dict(data: Mapping[str, Any]) -> Operation:
+    if not isinstance(data, Mapping):
+        raise ContractError("operation must be a mapping")
+    return Operation(
+        operation_id=data.get("id"),
+        method=data.get("method"),
+        path=data.get("path"),
+        service=data.get("service"),
+        visibility=data.get("visibility", "external"),
+        summary=data.get("summary"),
+        parameters=tuple(_parameter_from_dict(item) for item in data.get("parameters", ()) or ()),
+        request_body=_request_body_from_dict(data.get("request_body")),
+        responses=tuple(_response_from_dict(item) for item in data.get("responses", ()) or ()),
+        metadata=dict(data.get("metadata", {}) or {}),
+    )
+
 _EXTERNAL_VISIBILITIES = frozenset({"external", "external_gateway", "external_direct"})
 
 
@@ -254,6 +323,25 @@ class ApiContract:
         if self.metadata:
             data["metadata"] = dict(self.metadata)
         return data
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "ApiContract":
+        """Restore one normalized contract snapshot produced by :meth:`to_dict`."""
+        if not isinstance(data, Mapping):
+            raise ContractError("contract snapshot must be a mapping")
+        operations = data.get("operations")
+        if not isinstance(operations, list):
+            raise ContractError("contract.operations must be a list")
+        metadata = data.get("metadata", {}) or {}
+        if not isinstance(metadata, Mapping):
+            raise ContractError("contract.metadata must be a mapping")
+        return cls(
+            project=data.get("project"),
+            source_kind=data.get("source_kind"),
+            version=str(data.get("version")),
+            operations=tuple(_operation_from_dict(item) for item in operations),
+            metadata=dict(metadata),
+        )
 
     def write_json(self, path: str | Path) -> Path:
         """Write a deterministic UTF-8 JSON snapshot and return its path."""

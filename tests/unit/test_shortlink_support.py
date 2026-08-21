@@ -106,6 +106,7 @@ def test_grouped_yaml_files_are_exactly_four_business_domains_and_hold_18_cases(
 
 def test_create_prerequisite_reuses_v2_case_and_retries_only_b100000(monkeypatch):
     """前置 Create 必须复用稳定 case_id，并且只对已知 Sentinel 限流做有限重试。"""
+    from contracts.model import ApiContract, Operation
     from core.case_executor import CaseExecutor
     from core.case_registry import CaseRegistry
     from core.context_provider import ContextProviderRegistry
@@ -165,7 +166,21 @@ def test_create_prerequisite_reuses_v2_case_and_retries_only_b100000(monkeypatch
     providers = ContextProviderRegistry()
     providers.register("shortlink.group", lambda _executor: None)
 
-    with CaseExecutor(runner=runner, registry=registry, providers=providers) as executor:
+    contract = ApiContract(
+        project="shortlink",
+        source_kind="fixture",
+        version="1",
+        operations=(
+            Operation(
+                operation_id="shortlinkCreate",
+                method="POST",
+                path="/api/short-link/admin/v1/create",
+            ),
+        ),
+    )
+    with CaseExecutor(
+        runner=runner, registry=registry, contract=contract, providers=providers
+    ) as executor:
         created = create_shortlink_from_case(executor)
 
     assert created["origin_url"] == "https://www.doubao.com/"
@@ -236,6 +251,20 @@ def test_shortlink_project_registers_v2_context_providers_and_hooks():
         "shortlink.visited",
     ):
         assert callable(providers.get(name))
+
+    expected_dependencies = {
+        "shortlink.static": ((), ()),
+        "shortlink.authenticated": (("shortlink.static",), ("shortlinkUserLogin",)),
+        "shortlink.group": (("shortlink.authenticated",), ("shortlinkGroupList",)),
+        "shortlink.created": (("shortlink.group",), ("shortlinkCreate", "shortlinkRecycleSave", "shortlinkRecycleRemove")),
+        "shortlink.recycled": (("shortlink.group",), ("shortlinkCreate", "shortlinkRecycleSave", "shortlinkRecycleRemove")),
+        "shortlink.visited": (("shortlink.created",), ("shortlinkRedirect",)),
+    }
+    for name, (requires, operations) in expected_dependencies.items():
+        spec = providers.get_spec(name)
+        assert spec.metadata_declared is True
+        assert spec.requires == requires
+        assert spec.operations == operations
 
     for name in (
         "shortlink.capture_group",

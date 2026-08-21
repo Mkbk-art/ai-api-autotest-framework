@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from contracts.model import Operation
 from core.case_registry import CaseRegistry
 from core.case_spec import CaseSpecError, load_case_specs
 
@@ -30,8 +31,6 @@ cases:
     execution: declarative
     request:
       api_name: login
-      method: POST
-      path: /api/login
       headers:
         Content-Type: application/json
       json:
@@ -54,7 +53,7 @@ cases:
     assert case.risks == ("authentication",)
     assert case.requires == ("project.static",)
     assert case.execution == "declarative"
-    base_info, test_case = case.to_runner_parts()
+    base_info, test_case = case.to_runner_parts(Operation(operation_id="userLogin", method="POST", path="/api/login"))
     assert base_info == {
         "api_name": "login",
         "url": "/api/login",
@@ -114,7 +113,7 @@ cases:
     execution: workflow
     workflow:
       handler: project.lifecycle
-    request: {method: GET, path: /resource}
+    request: {}
     assertions: [{status_code: 200}]
 """,
     )
@@ -178,7 +177,7 @@ cases:
       - removeResource
     workflow:
       handler: project.lifecycle
-    request: {method: POST, path: /api/resources/recycle}
+    request: {}
     assertions: []
 """,
     )
@@ -203,7 +202,7 @@ cases:
     operation_id: primaryOperation
     operations: [primaryOperation, secondaryOperation]
     level: core
-    request: {method: GET, path: /api/composite}
+    request: {}
     assertions: [{status_code: 200}]
 """,
     )
@@ -211,7 +210,7 @@ cases:
     case = load_case_specs(path)[0]
 
     assert case.operation_ids == ("primaryOperation", "secondaryOperation")
-    _, runner_case = case.to_runner_parts()
+    _, runner_case = case.to_runner_parts(Operation(operation_id="primaryOperation", method="GET", path="/api/composite"))
     assert runner_case["operations"] == ["primaryOperation", "secondaryOperation"]
 
 

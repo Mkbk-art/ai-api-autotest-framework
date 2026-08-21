@@ -8,6 +8,13 @@ api:
   verify_ssl: true
   # 连接真实 SUT 时保持 false；框架 Demo/自测环境可设置 true。
   use_mock: false
+  # 可选多服务 base URL 映射；key 必须与 Contract Operation.service 对应。
+  # 未配置的 service 自动回退上面的 api.host，因此单服务项目无需填写。
+  service_hosts: {}
+  # 示例：
+  # service_hosts:
+  #   user: http://user-service.test:8081
+  #   payment: http://payment-service.test:8082
 
 # 声明本环境要收集的项目 suite；对应目录为 testcases/<suite>/。
 test_selection:

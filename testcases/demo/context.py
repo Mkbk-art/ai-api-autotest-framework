@@ -20,10 +20,19 @@ def register_extensions(providers, hooks) -> None:
 
     @contextmanager
     def published_interface(executor):
-        # 发布资源前先保证已经登录；Provider 自身可以声明依赖而不污染 Core。
-        executor.ensure_context("demo.authenticated")
+        # 依赖由注册 metadata 显式声明，CaseExecutor 会先建立 authenticated 上下文。
         executor.execute("demo.interface.publish.success")
         yield
 
-    providers.register("demo.authenticated", authenticated)
-    providers.register("demo.published_interface", published_interface)
+    providers.register(
+        "demo.authenticated",
+        authenticated,
+        requires=(),
+        operations=("demoLogin",),
+    )
+    providers.register(
+        "demo.published_interface",
+        published_interface,
+        requires=("demo.authenticated",),
+        operations=("demoPublishInterface",),
+    )

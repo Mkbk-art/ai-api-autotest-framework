@@ -15,8 +15,6 @@ cases:
   - authorization
   request:
     api_name: 查询当前用户短链接分组
-    method: GET
-    path: /api/short-link/admin/v1/group
     headers:
       username: ${username}
       token: ${token}
@@ -47,8 +45,6 @@ cases:
   - authorization
   request:
     api_name: 未携带 token 查询短链接分组
-    method: GET
-    path: /api/short-link/admin/v1/group
     headers:
       username: ${config(shortlink,username)}
   assertions:
@@ -71,8 +67,6 @@ cases:
   - state_transition
   request:
     api_name: 创建永久短链接
-    method: POST
-    path: /api/short-link/admin/v1/create
     headers: &id001
       Content-Type: application/json
       username: ${username}
@@ -118,8 +112,6 @@ cases:
   - invalid_input
   request:
     api_name: 创建永久短链接
-    method: POST
-    path: /api/short-link/admin/v1/create
     headers: *id001
     json:
       domain: ${config(shortlink,domain)}
@@ -150,8 +142,6 @@ cases:
   - persistence
   request:
     api_name: 创建永久短链接
-    method: POST
-    path: /api/short-link/admin/v1/create
     headers: *id001
     json: *id002
   assertions:
@@ -201,8 +191,6 @@ cases:
   - authorization
   request:
     api_name: 未携带 token 创建短链接
-    method: POST
-    path: /api/short-link/admin/v1/create
     headers:
       Content-Type: application/json
       username: ${config(shortlink,username)}
@@ -234,8 +222,6 @@ cases:
   - persistence
   request:
     api_name: 分页查询分组短链接
-    method: GET
-    path: /api/short-link/admin/v1/page
     headers:
       username: ${username}
       token: ${token}
@@ -273,8 +259,6 @@ cases:
   - persistence
   request:
     api_name: 短链接回收与存储状态一致性
-    method: POST
-    path: /api/short-link/admin/v1/recycle-bin/save
   assertions: []
   execution: workflow
   workflow:
@@ -326,8 +310,6 @@ cases:
   - cache_consistency
   request:
     api_name: 短链接回收与存储状态一致性
-    method: POST
-    path: /api/short-link/admin/v1/recycle-bin/save
   assertions: []
   execution: workflow
   workflow:

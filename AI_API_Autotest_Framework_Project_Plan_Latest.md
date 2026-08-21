@@ -1,8 +1,8 @@
 # AI 辅助接口自动化测试框架项目计划书
 
-> **版本**：V4.1（Stage 5 代码与离线验收版）
-> **更新日期**：2026-08-20
-> **当前阶段**：Stage 5 — Contract & Coverage Intelligence（代码与离线验收完成，待用户本机复验后正式封板）
+> **版本**：V4.4（Stage 6.5 Contract-driven Endpoint Ownership 完整收敛版）
+> **更新日期**：2026-08-21
+> **当前阶段**：Stage 6.5 — Contract-driven Case Simplification（基于真实 Shortlink 变更验证暴露出的重复事实源问题进行架构收缩）
 > **项目定位**：Contract-driven, Change-aware, AI-assisted API Test Automation Framework
 > **维护规则**：每完成一个阶段或发生架构级决策，必须同步更新本计划书中“当前阶段”“该阶段问题与解决”“完成状态”和“总进度表”。不再在文档顶部持续堆叠长版本日志。
 
@@ -56,6 +56,20 @@ Shortlink 只是第一真实 SUT，用于验证框架在真实复杂系统上的
 4. 面试时是否能用真实代码、测试或 CI 证据证明？
 
 答不上来，就不进入主框架。
+
+## 1.4 计划执行原则
+
+计划书记录的是“当前最优设计”，不是不可修改的固定施工图。
+
+每进入一个 Stage / 子任务实现前，必须重新检查：
+
+1. 当前问题是否仍真实存在；
+2. 原设计是否仍是最简单、通用、可验证的方案；
+3. 是否为了某个测试、当前 SUT 或历史计划引入了不必要依赖；
+4. 是否出现更好的实现边界；
+5. 若真实实施暴露新问题，应先修正设计和计划书，再继续开发。
+
+不得为了“严格按计划完成”而保留已经证明不合理的实现。
 
 ---
 
@@ -114,9 +128,10 @@ YAML 不演化为第二门编程语言。
 | Stage 2 | 数据源与深层一致性 | ✅ 已完成 |
 | Stage 3 | 真实 SUT 与 CI/CD 工程验证 | ✅ 已完成 |
 | Stage 4 | Declarative Case Runtime | ✅ 已完成 |
-| Stage 5 | Contract & Coverage Intelligence | 🟡 代码与离线验收完成 / 待用户本机复验 |
-| Stage 6 | Change-aware Smart Regression | ⏳ 未开始 |
-| Stage 7 | AI Risk-based Test Design | ⏳ 未开始 |
+| Stage 5 | Contract & Coverage Intelligence | ✅ 已完成并通过用户 Windows 本机复验 |
+| Stage 6 | Change-aware Smart Regression | 🟡 真实 Shortlink Local 变更闭环已验证；GitHub Actions / Jenkins 最终验收待完成 |
+| Stage 6.5 | Contract-driven Case Simplification | 🟡 当前实施 |
+| Stage 7 | AI Risk-based Test Design | ⏸ 暂停，Stage 6.5 完成后重新评估 |
 | Stage 8 | Failure Triage & Allure Enrichment | 🟡 已有 Evidence/AI 基础，完整阶段未完成 |
 | Stage 9 | 第二 SUT 与最终复用性证明 | ⏳ 未开始 |
 
@@ -795,6 +810,10 @@ coverage-gap.json
 **问题 6：项目新增 `contract/contract.yaml` 后，Pytest marker 注册曾把它误当 Test Specification。**
 **解决：** 根 `conftest.py` 的 marker 扫描从 `testcases/**/*.yaml` 收紧为约定目录 `testcases/<suite>/yaml/*.yaml`。这样项目可以安全拥有 `contract/`、fixtures 等其他 YAML 资产，而不会污染测试收集。
 
+**问题 7：为证明 `coverage_engine/` 不与第三方 `coverage` 包重名，最初架构测试直接 `import coverage`，导致没有安装该可选包的正常运行环境在 test collection 阶段失败。**
+**解决：** 不新增依赖、不修改 requirements；架构守卫只检查仓库自身不存在根级 `coverage/` 或 `coverage.py`，并确认使用 `coverage_engine/`。原则是“守卫真实架构风险，而不是为了守卫本身强迫最终用户安装无关依赖”。
+
+
 ## 5.8 阶段总结
 
 Stage 5 不负责“智能选择测试”，而是先建立可信的系统 API 清单与测试覆盖关系。
@@ -822,14 +841,32 @@ OpenAPIProvider（YAML/JSON/local $ref）：✅ 已实现
 Workflow 多 Operation：✅ 已正式建模
 Coverage Index/Gap：✅ 已实现
 独立 Coverage CLI：✅ 已实现
-Stage 5 专项测试：✅ 34 passed
-框架全量：✅ 211 passed
-Mock smoke/core/regression：✅ 各 2 passed / 4 deselected
-Shortlink 离线 Coverage：✅ 8/27 = 29.63%，unknown bindings = 0
-用户本机复验：⏳ 待执行
+Stage 5 架构专项：✅ 用户 Windows 5 passed
+框架全量：✅ 用户 Windows 211 passed in 31.88s
+Shortlink Coverage CLI：✅ 8/27 = 29.63%，untested = 19，unknown bindings = 0
+原 Mock smoke：✅ 2 passed / 4 deselected
+Allure HTML：✅ 本机成功生成
+额外第三方 coverage 依赖：✅ 不需要
+用户本机复验：✅ 已完成
 ```
 
-**阶段状态：🟡 代码与离线验收完成，待用户本机复验后正式标记完成。**
+**阶段状态：✅ 已完成。**
+
+### Stage 5 最终结论
+
+Stage 5 已建立统一、来源无关的 Contract/Coverage 数据层：
+
+```text
+OpenAPI / Static Manifest
+→ ApiContract
+→ Case / Workflow Operation Relations
+→ CoverageIndex
+→ CoverageGap
+```
+
+当前 Shortlink 的 `8/27 = 29.63%` 是“现有代表性测试资产对 External Operation 的真实覆盖关系”，不是质量评分，也不要求为了提高数字而在本阶段继续扩张 Shortlink 用例。未覆盖的 19 个 Operation 将作为后续 Coverage Gap / Risk-based Test Design 的真实输入。
+
+本阶段没有新增 Spring/Java 源码解析器，没有让 Framework Core 依赖当前 SUT，也没有改变原有 API Test Runtime 的 PASS/FAIL 语义。
 
 ---
 
@@ -837,87 +874,830 @@ Shortlink 离线 Coverage：✅ 8/27 = 29.63%，unknown bindings = 0
 
 ## 6.1 阶段目的
 
-当 API Contract 发生变化时，不盲目全量回归，也不让 AI 猜测必跑用例，而是确定性计算受影响集合。
+在 API Contract 发生变化时，以**可解释、可审计、用户可控且安全优先**的方式计算受影响测试范围。
+
+Stage 6 的目标不是“每次都尽量少跑测试”，而是：
+
+```text
+有确定证据时安全缩小回归范围
+不确定时诚实回退 FULL
+用户始终保留 FULL 的最终执行权
+```
+
+Stage 6 V1 聚焦 **Contract-change-aware regression**，不冒充任意语言源码级影响分析系统。
 
 ## 6.2 当前问题 / 为什么需要该阶段
 
-传统做法：
+Stage 5 已经建立：
 
 ```text
-代码变了
-→ 不确定影响
-→ 全量回归
+ApiContract
++
+Case / Workflow -> Operation
++
+Coverage Index / Gap
 ```
 
-大型接口项目会浪费大量时间；但“只凭代码文件名”选择测试又有漏测风险。
+但框架仍不能回答：
+
+- 上一个被接受的 Contract 版本是什么；
+- 当前 Contract 与基线相比改了什么；
+- 哪些变化属于 Breaking / Risky / Non-breaking；
+- 一个 Operation 变化后，除了直接 Case，还有哪些 Workflow / Context 依赖 Case 应该运行；
+- Case 自己声明的 method/path 是否已经与 Contract 漂移；
+- AUTO 无法安全判断时应该怎么办；
+- 用户想全量、只预览、或额外强制加入 Case 时如何控制；
+- 选择结果在哪里看、如何交给 Pytest 执行。
 
 ## 6.3 设计思路
 
+### 6.3.1 总体流程
+
 ```text
-Old Contract
+Accepted Baseline Snapshot
 +
-New Contract
+Current Normalized ApiContract
 ↓
 Contract Diff
 ↓
 Changed Operations
 ↓
-Coverage Index
+Direct Case / Workflow Mapping
 ↓
-Dependency Graph
+Context Dependency Expansion
 ↓
-Mandatory Cases
+Case-Contract Drift Check
 ↓
-Safety Policy
+User Includes
 ↓
-Optional AI Semantic Supplement
+Safety Check
+↓
+SelectionPlan
+├── safe impacted set
+└── unsafe -> FULL fallback
+↓
+selection.json / selection.md / Console
+↓
+Pytest collection filter
+↓
+Existing Runtime / JUnit / Allure
 ```
 
-AI 只能 Add/Escalate，不能删除 Mandatory Set。
+V1 **不接 AI**。只有确定性 Contract Diff + Dependency + Safety 证明稳定后，才重新评估 AI Semantic Supplement 是否确有必要。
+
+### 6.3.2 用户控制模型
+
+现有命令语义保持不变：
+
+```text
+--level smoke      -> 全部 smoke
+--level core       -> 全部 core
+--level regression -> 全部 regression
+```
+
+新增：
+
+```text
+--level all
+```
+
+表示当前项目全部结构化 Case。
+
+`level` 与 `selection` 是两个独立维度：
+
+```text
+All Project Cases
+↓
+LEVEL = 候选全集
+↓
+SELECTION = 是否在候选全集中继续缩小
+↓
+Final Selected Cases
+```
+
+Selection 模式：
+
+```text
+--selection full   # 默认；保持现有行为
+--selection auto   # 显式启用变更感知选择
+--selection-only   # 只生成 SelectionPlan，不执行 Pytest
+```
+
+用户可以在 AUTO 中**做加法**：
+
+```text
+--include-case <case_id>
+--include-tag <tag>
+```
+
+但 include 不能越过 `level` 候选边界；越界必须明确报错。
+
+AUTO V1 不提供 `--exclude-case` 删除 Mandatory Case。AUTO 的可信语义为：
+
+```text
+Final = Mandatory ∪ User Includes
+```
+
+如果客户就是想全部测试，直接使用 `--selection full`；整个项目全量使用 `--level all --selection full`。
+
+### 6.3.3 Baseline Snapshot 生命周期
+
+Baseline 定义：
+
+> **一个已被用户/团队明确接受的 Normalized ApiContract 历史版本。**
+
+Baseline 不是上一次执行结果，也不自动绑定 Git 上一个 commit。
+
+持久 Baseline 属于项目 Contract 资产：
+
+```text
+testcases/<project>/contract/baseline.json
+```
+
+允许通过环境 `contract.baseline` 显式指定其他路径；未配置时可从 Contract source 目录推导 `baseline.json`。
+
+Baseline 只允许显式更新：
+
+```text
+baseline init   # 第一次建立
+baseline accept # 明确接受当前 Contract 为新基线
+```
+
+普通：
+
+```text
+PASS / FAIL / FULL / AUTO / PREVIEW
+```
+
+均**不得修改 Baseline**。
+
+Baseline 保存的是 Normalized Snapshot，而不是原始 OpenAPI / Static Manifest。Snapshot 可以保存 schema version、project、created_at、provider/source digest 等审计元数据，但 Diff 只比较 Contract Semantic Content。
+
+缺失、损坏、项目不匹配、schema 不兼容的 Baseline 均视为 AUTO 不安全：
+
+```text
+AUTO requested
+↓
+Baseline unsafe/missing
+↓
+FULL fallback
+```
+
+而不是自动创建/覆盖 Baseline。
+
+每次 AUTO Run 只把实际使用的 baseline/current/diff 复制到本次 Run Artifact，作为只读证据。
+
+### 6.3.4 Contract Diff V1
+
+Diff 比较统一 `ApiContract`，不直接比较原始 OpenAPI 文本，也不解析 Git Diff / Java 源码。
+
+逻辑身份：
+
+```text
+operation_id
+```
+
+Operation 属性：
+
+```text
+method
+path
+parameters
+request body
+responses
+```
+
+V1 比较：
+
+- Operation added / removed；
+- method / path；
+- parameter added / removed / required / type / format；
+- request body required / content type；
+- request field added / removed / required / type / format / nullable；
+- response status added / removed；
+- response field added / removed / required / type / format / nullable。
+
+V1 忽略：
+
+```text
+summary
+description
+examples
+doc tags
+纯文档元数据
+```
+
+Severity：
+
+```text
+BREAKING
+RISKY
+NON_BREAKING
+```
+
+但 Severity 与“是否选择测试”分离：只要 Operation 有语义变化，它就是 Changed Operation，其已绑定 Case 进入 Direct Mandatory Set；Severity 只说明风险等级。
+
+典型 Breaking：
+
+- Operation removed；
+- method/path changed；
+- required parameter/field added；
+- optional -> required；
+- parameter/request/response field removed；
+- type changed；
+- success response status removed。
+
+典型 Non-breaking：
+
+- Operation added；
+- optional request/response field added。
+
+当前模型没有完整 constraints/enum 时不提前伪造比较能力；后续只有 Contract Model 真实支持这些字段时再扩展 Risky 规则。
+
+### 6.3.5 Added / Removed Operation 特殊处理
+
+Added Operation：
+
+```text
+OPERATION_ADDED
++
+0 existing cases
+↓
+NEW_OPERATION_WITHOUT_TEST Coverage Gap
+```
+
+这不是“0 selected = everything is fine”，而是明确未覆盖变化，供后续 Stage 7 使用。
+
+Removed Operation 必须利用 Baseline + CaseRegistry 中旧 operation_id 关系选择原有 Case，避免因为 Current Contract 已无该 Operation 而漏掉失效测试资产。
+
+### 6.3.6 Endpoint Ownership（Stage 6.5 修正）
+
+Stage 6 初版曾通过 `CASE_CONTRACT_DRIFT` 比较 Case 与 Contract 的 method/path。真实 Shortlink `/stats -> /stats-v2` 验证证明该机制能发现不一致，但同时暴露了更根本的问题：普通 Case 与 Contract 不应长期维护两份 endpoint。
+
+Stage 6.5 后当前规则改为：
+
+```text
+Contract-bound Case
+operation_id -> Current ApiContract -> method/path
+```
+
+普通 Case 不再保存相对 `method/path`，因此不再需要在主路径制造并检测 endpoint drift。跨服务绝对 URL 作为明确 override；standalone/unbound Case 自己维护 endpoint。
+
+### 6.3.7 Dependency Expansion V1
+
+只使用能够由测试资产明确证明的依赖：
+
+```text
+Case -> Operation
+Workflow -> Operations
+Case -> Context Provider
+Context Provider -> Context Provider
+Context Provider -> Operations
+```
+
+Context Provider 注册时显式声明：
+
+```text
+requires=(...)
+operations=(...)
+```
+
+即使没有依赖，也明确写空 tuple，区分“已确认没有依赖”和“忘记声明”。
+
+依赖关系全部传递展开，不提供任意 `dependency-depth` 截断。
+
+Dependency Graph 必须检测：
+
+- unknown Provider；
+- unknown Operation；
+- Provider dependency cycle。
+
+Graph 无效：
+
+```text
+AUTO unsafe -> FULL fallback
+```
+
+V1 暂时**不做**：
+
+- 独立 Operation -> Operation sidecar；
+- Java/Python/Node/Go 源码调用图；
+- DB Table / Redis Key lineage；
+- tag 推断依赖；
+- risk 推断依赖；
+- AI dependency guessing。
+
+如果第二 SUT / 真实 Stage 6 验证证明 Context/Workflow 关系不足，再重新评估显式 Operation Dependency。
+
+### 6.3.8 Selection Reason
+
+第一版标准 Reason Code：
+
+```text
+DIRECT_OPERATION_CHANGE
+WORKFLOW_OPERATION_CHANGE
+CONTEXT_OPERATION_DEPENDENCY
+USER_INCLUDE
+SMOKE_SAFETY_SET
+FULL_MODE
+AUTO_FALLBACK_FULL
+```
+
+同一个 Case 可以同时拥有多个 Reason，不丢失证据链。
+
+### 6.3.9 Smoke Safety Set
+
+只有：
+
+```text
+--level all --selection auto
+```
+
+默认把全部 Smoke 加入 Safety Set。
+
+`--level regression/core/smoke` 时不越界加入其他 level，保持原有 level 语义。
+
+### 6.3.10 AUTO 与 Pytest 集成
+
+Stage 6 不重写测试执行器。
+
+Selector 只生成稳定 `case_id` 集合和 SelectionPlan：
+
+```text
+SelectionEngine
+↓
+selection.json
+↓
+Pytest normal collection
+↓
+generic collection filter by stable case_id
+↓
+Existing Declarative Runtime / Python Workflow
+```
+
+不使用巨大 `pytest -k`；不修改 YAML；不临时删除 Case；不直接调用 CaseExecutor 绕过 Pytest。
+
+Pytest collection filter 只消费 SelectionPlan，不理解 Contract Diff、Dependency 或具体 SUT。
+
+### 6.3.11 结果呈现
+
+执行前 Console 直接展示摘要：
+
+```text
+Mode
+Baseline / Current
+Changed Operations
+Eligible Cases
+Selected Cases
+Direct / Workflow / Context / Drift / Safety counts
+Fallback reason（若有）
+Artifact location
+```
+
+人类详细查看：
+
+```text
+reports/runs/<run_id>/selection/selection.md
+```
+
+机器/CI 消费：
+
+```text
+reports/runs/<run_id>/selection/selection.json
+```
+
+本次 Contract 证据：
+
+```text
+reports/runs/<run_id>/contract/
+├── baseline.json
+├── current.json
+└── diff.json
+```
+
+执行后的 Allure 可显示每条已执行 Case 的 Selection Evidence；但 Allure 不是 Selection 全局主入口，因为未执行的 Case 天然没有 Test Result。
+
+### 6.3.12 Local-first / Thin CI
+
+Stage 6 先完成 Local 完整闭环：
+
+```text
+Baseline init/accept
+→ Diff
+→ Preview
+→ AUTO execution
+→ FULL fallback
+→ Selection Artifacts
+→ Existing Allure/JUnit
+```
+
+Local 真实验收通过后，CI 只做薄接入：
+
+- GitHub Actions / Jenkins 继续调用同一个 `run.py`；
+- 可选暴露 `SELECTION=full|auto` / Preview 参数；
+- 归档既有 `reports/runs/<run_id>/` 即可自然带上 selection/contract artifacts；
+- CI 不重新实现 Selector；
+- Baseline 不由普通 CI Run 自动 accept。
 
 ## 6.4 使用方式
 
-目标：
+### 保持原行为
 
 ```bash
-python run.py --env <ENV> --selection auto
+python run.py --env test --level smoke
+python run.py --env test --level core
+python run.py --env test --level regression
 ```
 
-也允许显式 full regression。
+等价于 `selection=full`。
+
+### 整个项目全量
+
+```bash
+python run.py --env <env> --level all --selection full
+```
+
+### 整个项目 AUTO
+
+```bash
+python run.py --env <env> --level all --selection auto
+```
+
+### AUTO Preview
+
+```bash
+python run.py --env <env> --level all --selection auto --selection-only
+```
+
+### 在 AUTO 中额外加入测试
+
+```bash
+python run.py --env <env> --level all --selection auto \
+  --include-case order.refund.boundary \
+  --include-tag security
+```
+
+### Baseline 生命周期
+
+```bash
+python -m regression_engine.cli baseline init --env <env>
+python -m regression_engine.cli baseline accept --env <env>
+```
 
 ## 6.5 阶段亮点（与传统方式的差异）
 
-不是基于 Git 文件路径粗暴选测试，也不是把全部判断交给 LLM，而是：
+传统方式常见：
 
-> Contract Diff + Coverage + Dependency First，AI Last。
+```text
+Git 文件变更 -> 粗暴映射测试
+或
+每次 Full Regression
+或
+让 AI 直接猜受影响测试
+```
+
+本阶段采用：
+
+> **Accepted Contract Baseline + Deterministic Diff + Explicit Test Dependencies + Safe Fallback + User Control。**
+
+它不是为了“少跑而少跑”，而是把“为什么跑 / 为什么没跑 / 为什么回退全量”都保存为机器和人可读证据。
 
 ## 6.6 阶段产出与验收
 
-- Contract Snapshot；
-- Contract Diff；
-- Changed Operations；
-- Dependency Graph；
-- Selector；
-- fallback；
-- selection evidence。
+计划产出：
+
+```text
+regression_engine/
+├── snapshot.py
+├── diff.py
+├── dependency.py
+├── selection.py
+├── analyzer.py
+└── cli.py
+```
+
+必要的通用扩展：
+
+- `ContextProviderRegistry` dependency metadata；
+- `run.py` 增加 `level=all / selection / preview / user include`；
+- Pytest 通用 SelectionPlan collection filter；
+- Shortlink Provider 显式 dependency metadata；
+- Shortlink initial accepted baseline；
+- Stage 6 fixtures / unit / integration tests。
+
+Local 验收必须覆盖：
+
+1. baseline init/accept 都是显式动作；
+2. 普通 run 永不修改 baseline；
+3. missing/invalid baseline -> FULL fallback；
+4. Normalized Contract Diff 能发现 operation/method/path/parameter/request/response 变化；
+5. description 等纯文档变化不触发 Changed Operation；
+6. Added Operation 无 Case 形成明确 gap；
+7. Removed Operation 仍能选择旧绑定 Case；
+8. Workflow 多 Operation 正确扩展；
+9. Context dependency 传递展开；
+10. unknown/cycle dependency -> FULL fallback；
+11. Contract-bound Case 不重复保存 method/path，endpoint 由 Current Contract 解析；
+12. `level` 先限定候选范围；
+13. `level=all` 收集当前项目全部 Case；
+14. AUTO selection 通过稳定 case_id 交给 Pytest；
+15. AUTO 不使用巨大 `-k`、不改 YAML、不绕过 Pytest；
+16. User Include 只能加、不越过 level；
+17. `level=all + auto` 包含 Smoke Safety Set；
+18. selection-only 不执行 Pytest；
+19. selection.json/md + contract diff artifacts 生成；
+20. 原 smoke/core/regression FULL 行为和 Allure/JUnit 不回归；
+21. Framework Core / regression_engine 不出现 Shortlink 业务硬编码。
 
 ## 6.7 阶段产生的问题与解决方式
 
-预期风险：
+### 已在设计期解决的问题
 
-**Contract/Coverage 不完整导致漏测。**
-解决：无法确认影响边界时强制 Full Regression。
+**问题 1：AUTO 会不会夺走用户全量测试控制权？**
+解决：默认 FULL；AUTO 必须显式开启；用户随时可 `--selection full`，整个项目使用 `--level all --selection full`。
 
-**公共 Auth / Shared Schema 变化影响范围过大。**
-解决：高风险基础能力变化直接升级回归范围。
+**问题 2：选择结果在哪里看？**
+解决：Console 摘要 + `selection.md` 人读 + `selection.json` 机器读；执行后的 Allure 只展示已执行 Case 的 Selection Evidence。
+
+**问题 3：Baseline 是否自动更新？**
+解决：绝不自动更新；只有显式 `baseline init/accept` 才能写持久 Baseline。
+
+**问题 4：AUTO 如何不破坏现有 level？**
+解决：Level 是外层候选范围，Selection 只在范围内缩小；新增 `all`，不修改 smoke/core/regression 原语义。
+
+**问题 5：Dependency Graph 会不会变成另一个维护平台？**
+解决：V1 只复用已有 Case/Workflow/Context 资产，并给 Context Provider 增加最小显式 metadata；不引入独立业务依赖 sidecar。
+
+**问题 6：Service 内部实现改了但 Contract 没变怎么办？**
+解决：V1 明确不做任意源码影响分析；用户/CI 可选择 FULL。不能把“Contract 没变”伪装成“业务一定没影响”。
+
+**问题 7：AI 是否现在进入 Selector？**
+解决：V1 不接 AI。先证明确定性选择闭环有价值，再决定是否存在必须由 AI 补充的真实语义缺口。
+
+### 实施期新增问题与解决
+
+**问题 8：`run_tests()` 在同一 Python 进程多次执行时会残留 `API_HOST/API_TIMEOUT/...`，新增 Stage 6 Runner 测试后暴露出配置串扰。**
+解决：把 API 运行态改为上下文管理；一次 run 结束后恢复调用前环境。该修复属于通用 Runner 稳定性，不依赖 Stage 6 或 Shortlink。
+
+**问题 9：Baseline Snapshot 曾可能带入 Contract metadata 中的本机绝对 `source_path`。**
+解决：持久 Baseline 只保存可移植的 Normalized Semantic Contract 和必要审计元数据；运行时本机路径在 Snapshot 前剥离，避免跨机器无意义 Diff 和目录泄露。
+
+**问题 10：Stage 6 新测试文件与已有 Coverage 测试同名，Pytest 默认 import mode 下发生 `test_analyzer/test_cli` 顶层模块冲突。**
+解决：使用唯一测试模块名 `test_regression_analyzer.py / test_regression_cli.py`，不修改全局 Pytest import mode 去掩盖命名问题。
+
+**问题 11：Thin CI 应如何接入而不产生第二套 Selector？**
+解决：Jenkins 只增加 `LEVEL=all`、`SELECTION=full|auto`、`SELECTION_ONLY` 参数并传给 `run.py`；GitHub Actions 只新增受控 Demo AUTO Preview。两者都不执行 `baseline init/accept`，也不复制 Diff/Dependency/Selector 逻辑。
 
 ## 6.8 阶段总结
 
-目标不是“少跑测试”，而是在有确定证据时安全减少无关回归。
+Stage 6 的核心不是一个“智能算法”，而是一套受控回归决策协议：
+
+```text
+Accepted Baseline
+→ Explainable Diff
+→ Explicit Dependencies
+→ Mandatory Selection
+→ Safe Full Fallback
+→ User-controlled Execution
+→ Auditable Evidence
+```
 
 ## 6.9 当前进度
 
-**⏳ 未开始，依赖 Stage 5。**
+```text
+Stage 5 前置：✅ 已完成
+用户控制模型：✅ 已实现
+Baseline init / accept：✅ 已实现
+Normalized Contract Diff：✅ 已实现
+Dependency Expansion：✅ 已实现
+Case–Contract Drift：♻️ 已由 Stage 6.5 的单一 endpoint 事实源取代
+SelectionPlan / FULL fallback：✅ 已实现
+level=all / FULL / AUTO / Preview：✅ 已实现
+User Include（只加不减）：✅ 已实现
+Pytest stable case_id filter：✅ 已实现
+Selection JSON / Markdown：✅ 已实现
+Allure Selection Evidence：✅ 已实现
+Demo Contract + Baseline：✅ 已接入
+Shortlink Accepted Baseline：✅ 已接入
+Stage 6 Architecture Guard：✅ 已实现
+Thin GitHub Actions Preview：✅ 配置与离线契约验证
+Thin Jenkins parameters：✅ 配置与离线契约验证
+Stage 6 专项/契约测试：✅ 73+ passed
+Framework 全量：✅ 269 passed, 2 skipped
+原 Demo smoke/core/regression：✅ 各 2 passed, 4 deselected
+Demo level=all FULL：✅ 6 passed
+Demo AUTO Preview：✅ 2 / 6 selected
+Demo AUTO 真执行：✅ 2 passed, 4 deselected
+Shortlink AUTO Preview：✅ 6 / 18 selected（无 HTTP 请求）
+compileall：✅ PASS
+用户 Windows Shortlink AUTO Preview：✅ 真实 `/stats -> /stats-v2` 识别 1 changed operation，18 eligible -> 7 selected
+用户 Windows Shortlink Drift 实执行：✅ 5 个无关 Smoke 通过，2 个旧 `/stats` Statistics Case 真实返回 404
+用户 Windows Shortlink Case 修复后实执行：✅ `/stats-v2` 真实返回 200，7 passed / 11 deselected
+GitHub Actions 真实平台：⏳ 待 Stage 6.5 完成后统一 push 验收
+Jenkins 真实平台：⏳ 待 Stage 6.5 完成后统一验收
+```
+
+**阶段状态：🟡 核心 Change-aware Regression 已在真实 Shortlink 后端完成一次“变更 -> 选中 -> 旧 Case 失败 -> Case 修复 -> 通过”的 Local 闭环；最终 CI 平台验收与 Stage 6.5 一并完成后关闭。**
+
+---
+
+# Stage 6.5：Contract-driven Case Simplification
+
+## 6.5.1 阶段目的
+
+真实 Shortlink `/stats -> /stats-v2` 验证暴露出当前测试资产存在重复事实源：
+
+```text
+Contract: operation_id + method + path
+Case YAML: operation_id + method + path + test data + assertions
+```
+
+接口路径改变后需要同时修改 Contract 与 Case path。Stage 6 的 `CASE_CONTRACT_DRIFT` 能发现这种不一致，但更好的设计不是长期维护重复数据再检测漂移，而是从模型上消除普通 Case 的 endpoint 重复。
+
+本阶段目标：
+
+> **让 Contract 成为普通 API Operation 的 method/path 单一事实源；Case YAML 只维护测试输入、断言、提取、依赖与动态 path 参数；普通 Contract-bound Case 不再保存任何 method/path/url endpoint 信息。**
+
+## 6.5.2 设计原则
+
+1. Contract-bound Declarative Case 通过 `operation_id` 解析当前 `ApiContract.Operation`。
+2. 普通 Case 不再声明 `request.method` / `request.path`。
+3. Contract-bound Case 禁止直属 `request.url`。多服务/跨网关路由由 `Operation.service` 与环境 `api.service_hosts` 共同解析；Case 只提供 `path_params` 等运行时数据。
+4. 无 `operation_id` 的 standalone/ad-hoc Case 仍允许显式 `method + path/url`，但 Coverage 会继续把它视为 unbound asset；这样不强迫所有临时测试先建 Contract。
+5. Workflow Case 不依赖自身 dummy endpoint；复杂 Python 只负责 branch/loop/try/finally/状态编排，原子 HTTP 步骤优先通过稳定 `case_id` 调用已有 YAML Case。
+6. 不为了保留 `CASE_CONTRACT_DRIFT` 而故意保存重复 endpoint。Contract-bound Case 不再产生 endpoint drift；Standalone asset 仍自行负责显式 endpoint。
+7. V1 不实现完整 OpenAPI path-parameter DSL。若 Contract path 包含 `{id}`，本阶段只加入最小 `request.path_params` 显式替换能力；值仍支持现有 `${...}` 动态变量。
+8. RequestClient 网络职责不变；CaseExecutor/CaseSpec 解析 Contract method/path/service，ApiRunner 只根据通用 `api.host + api.service_hosts` 选择环境 base URL 并发送请求。
+
+## 6.5.3 目标数据流
+
+```text
+Case YAML
+  operation_id: shortlinkStats
+  request:
+    headers / params / json / data / request_options
+        +
+Current ApiContract
+  shortlinkStats -> GET /api/short-link/admin/v1/stats-v2
+        ↓
+CaseExecutor endpoint resolution
+        ↓
+ApiRunner
+        ↓
+RequestClient
+```
+
+多服务 / 动态路径：
+
+```text
+Current Contract
+  operation_id: shortlinkRedirect
+  service: project
+  method: GET
+  path: /{short-uri}
+        +
+Environment
+  api.host: http://127.0.0.1:8000
+  api.service_hosts.project: http://nurl.ink:8001
+        +
+Case YAML
+  operation_id: shortlinkRedirect
+  request.path_params.short-uri: ${short_uri}
+        ↓
+GET http://nurl.ink:8001/<resolved-short-uri>
+```
+
+## 6.5.4 兼容边界
+
+支持两种 Case：
+
+```text
+A. Contract-bound（推荐）
+operation_id required
+request 不写 method/path
+
+B. Standalone（兼容/临时）
+operation_id absent
+request 必须显式 method + path/url
+```
+
+Contract-bound Case 若仍同时声明 `request.method` 或相对 `request.path`，collection 阶段直接报清晰错误，避免新项目继续制造重复事实源。
+
+## 6.5.5 实施任务
+
+### Task 1 — CaseSpec 契约收缩
+
+- Contract-bound Declarative Case 不再要求 path/url；
+- 禁止其重复声明 method/relative path；
+- Contract-bound Case 同时禁止直属 `request.url`；
+- Standalone Case 保持显式 endpoint；
+- Workflow Case 允许没有 dummy request endpoint；
+- 增加 `path_params` 结构校验。
+
+### Task 2 — Contract-aware CaseExecutor
+
+- `CaseExecutor` 可注入当前 `ApiContract`；
+- `operation_id -> Operation.method/path`；
+- Contract-bound Case 未注入 Contract、unknown operation 均在发 HTTP 前失败；
+- 合并 `path_params` 到 Contract path；
+- 将 `Operation.service` 传递给 ApiRunner，由环境 `api.service_hosts` 选择 base URL；未配置 service host 时回退 `api.host`。
+
+### Task 3 — Pytest Runtime 注入 Contract
+
+- 新增/复用 session `api_contract` fixture；
+- 当前环境存在 Contract 时加载一次并注入 CaseExecutor；
+- Framework tests / standalone Case 不被强制依赖 Contract。
+
+### Task 4 — Demo / Shortlink 资产迁移
+
+- Demo 6 条普通 Case 删除重复 method/path；
+- Shortlink 管理类普通 Case 删除重复 method/path；
+- Redirect Case 删除 absolute `url`，改用 `path_params`；目标 host 由 Contract `service` 与环境 `api.service_hosts` 解析；
+- Workflow Case 删除 dummy request endpoint；
+- 不修改业务输入、断言、requires、operation_id、level、tags、risks。
+
+### Task 5 — Stage 6 Drift 语义收缩
+
+- Contract-bound 无 endpoint override 的 Case 不再做 method/path drift 比较；
+- Standalone 不参与 operation drift；
+- Contract-bound Case 不再存在 endpoint override；Standalone absolute URL 与 Contract drift 无关；
+- 更新 Stage 6 tests，删除“重复事实源必须长期存在”的假设。
+
+### Task 6 — 真实回归与 CI
+
+- Framework 全量；
+- Demo smoke/core/regression/all FULL；
+- Demo AUTO Preview + AUTO 真执行；
+- Shortlink Preview（本地无真实凭据也可执行）；
+- 用户 Windows 真实 Shortlink `/stats-v2` 场景重新验证：Contract 改后 Case 不改 endpoint 也能直接调用新路径；
+- GitHub Actions / Jenkins 最终验收后再关闭 Stage 6/6.5。
+
+
+### Task 7 — Multi-service Endpoint Resolution（用户全资产审计后补充）
+
+- `Operation.service` 进入执行时 `base_info`；
+- 环境新增通用 `api.service_hosts` 映射，key 只与 Contract service 标识对应；
+- `ApiRunner` 对相对 Contract path 先按 service 查 `service_hosts`，未命中再回退兼容的 `api.host`；
+- Contract-bound `request.url` collection 阶段直接拒绝；Standalone 仍允许 absolute URL；
+- Shortlink Redirect 4 条 Case 全部迁移为 `path_params`，不再保存 `nurl.ink:8001` 或 `/{short-uri}`；
+- `env_template.yaml` 提供通用多服务示例；Shortlink 本地环境仅作为一个项目适配样例，不进入 Core 分支；
+- 架构守卫动态扫描 `testcases/*/yaml/*.yaml`，禁止任何 Contract-bound Case 直属 `method/path/url`，但允许 `request.json` 等业务 payload 中出现同名字段。
+
+## 6.5.6 验收标准
+
+1. 普通 Contract-bound YAML 中不存在重复 `method/path`；
+2. 修改 Contract path 后，不修改该 Case endpoint 即能调用新路径；
+3. Case 测试数据/断言仍由 YAML 管理；
+4. 复杂 Workflow 仍通过 `CaseExecutor.execute(case_id)` 复用原子 Case，不把 YAML 扩展成控制流语言；
+5. 多服务 Contract Operation 可通过 `api.service_hosts` 工作，Case 不保存绝对 URL；
+6. Standalone Case 仍可用于临时/未建 Contract 的接口；
+7. Coverage / Smart Regression 仍以稳定 `operation_id` 工作；
+8. 无 Shortlink 业务逻辑进入 Core；
+9. 原 FULL/AUTO/Allure/JUnit 行为不回归。
+
+## 6.5.7 当前进度
+
+**🟡 Endpoint Ownership 已完成第二轮通用化收敛与离线回归，等待用户 Windows 多服务真实 Shortlink 验证及最终 CI 验收。**
+
+当前已完成：
+
+- `CaseSpec`：Contract-bound Declarative Case 不再保存 `request.method/path`；Standalone 保留显式 endpoint；Workflow 可省略 dummy endpoint；最小 `path_params` 已支持；本轮继续收敛 Contract-bound absolute URL；
+- `CaseExecutor`：新增统一 `build_runner_parts(case_id)`，通过 `operation_id -> ApiContract.Operation` 解析 method/path，普通执行与项目 helper 共用同一入口；
+- Pytest Runtime：当前环境 Contract 以 session fixture 注入 `CaseExecutor`；
+- Demo / Shortlink YAML：所有 Contract-bound Case 直属 `request.method/path/url` 已清零；Shortlink Redirect 4 条 Case 已由 absolute URL 迁移为 `path_params`；
+- Stage 6：主路径 `CASE_CONTRACT_DRIFT` 已移除，不再通过保存重复 endpoint 来证明一致性；
+- 架构守卫：动态扫描全部 `testcases/*/yaml/*.yaml`；任何带 `operation_ids` 的 Contract-bound Case（Declarative/Workflow）若重新出现直属 `request.method/path` 都会失败，不硬编码任何 SUT 名称；守卫已升级为动态扫描所有 suite，Contract-bound `request.method/path/url` 全部禁止；Standalone endpoint 仍保持兼容；
+- Framework 全量：**281 passed, 2 skipped**；
+- Multi-service Runtime：`Operation.service` 已进入执行边界；`ApiRunner` 支持通用 `api.service_hosts`，未映射 service 自动回退 `api.host`；
+- 全资产扫描：**7 个项目测试 YAML / 24 条 Case / 24 条 operation-bound asset（含 2 Workflow）**，直属 `request.method/path/url` 残留 **0**；
+- Demo `publish_api.yaml` 中仅保留 `request.json.method/path` 业务 payload 字段，架构守卫不会把嵌套业务数据误判为 endpoint。
+- Demo smoke/core/regression：各 **2 passed, 4 deselected**；
+- Demo `level=all --selection full`：**6 passed**；
+- Demo AUTO Preview：**2 / 6 selected**；Demo AUTO 真执行：**2 passed, 4 deselected**；
+- Shortlink AUTO Preview（当前 Contract 无变化）：**6 / 18 selected**；
+- Shortlink Coverage：**8 / 27 (29.63%)，untested=19，unknown_bindings=0**；
+- `compileall`：PASS；生产路径中已无 `CASE_CONTRACT_DRIFT`；Demo/Shortlink Contract-bound endpoint duplication=0。
+- V4.4 完整 overlay 从上一版 Stage 6 基线重建后包级验证：**281 passed, 2 skipped**，Demo AUTO Preview **2 / 6 selected**；
+- V4.4 correction overlay 从上一版 Stage 6.5 基线重建后包级验证：**281 passed, 2 skipped**，Demo AUTO Preview **2 / 6 selected**；
+- 两个用户覆盖包均主动排除 `config/env.shortlink-local.yaml`，避免覆盖本机真实凭据；真实 Shortlink 验证只需在现有 `api:` 下合并通用 `service_hosts.project` 路由。
+- 用户反馈后补做全资产审计：共发现 **7 个项目测试 YAML / 24 条 Case / 22 条 Contract-bound Declarative Case / 2 条 Workflow Case**；Contract-bound `request.method/path` 残留为 **0**；仅 Shortlink Redirect 的 **4 条 Case** 保留 absolute `request.url` override。守卫已从硬编码 `demo/shortlink` 改为动态扫描所有项目 suite，并覆盖 Workflow 的 `operation_ids`。
+
+下一条关键真实验收不是再次手工修改 Case path，而是：
+
+```text
+真实 Backend      = /stats-v2
+Current Contract   = /stats-v2
+Accepted Baseline  = /stats
+statistics.yaml    = 不包含 method/path
+        ↓
+AUTO 识别 1 个 PATH_CHANGED
+        ↓
+只通过 operation_id 从 Current Contract 解析 /stats-v2
+        ↓
+预计 7 selected / 11 deselected，且 Stats Case 真实请求 /stats-v2 并通过
+```
+
+该 Windows 真实 SUT 验证通过后，再统一进行 GitHub Actions / Jenkins 最终验收；在此之前 Stage 7 继续暂停。
 
 ---
 
@@ -1246,24 +2026,4 @@ Real Run / CI / Artifact（适用时）
 
 # 6. 当前下一步
 
-Stage 5 代码侧已经完成：
-
-```text
-ApiContract
-+ StaticManifestProvider
-+ OpenAPIProvider
-+ Workflow 多 Operation
-+ CoverageIndex / CoverageGap
-+ Standalone Coverage CLI
-+ Shortlink Static Manifest
-```
-
-当前只剩用户本机复验：
-
-```bash
-python -m pytest tests -q
-python -m coverage_engine.cli --env shortlink-local
-python run.py --env test --level smoke
-```
-
-本机复验通过后，将 Stage 5 状态更新为 ✅ 已完成，再进入 Stage 6 Contract Diff / Smart Regression。
+Stage 5 已正式关闭。Stage 6 已在真实 Shortlink `/stats -> /stats-v2` 变更上证明 AUTO 18 -> 7、旧 Case 真实 404、修复后 7/7 通过；该真实验证同时暴露 Contract 与 Case endpoint 重复维护问题。因此当前唯一执行路线调整为 Stage 6.5 Contract-driven Case Simplification，Stage 7 暂停。

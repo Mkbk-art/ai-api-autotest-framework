@@ -165,12 +165,39 @@ def register_extensions(
 ) -> None:
     """向 Framework Registry 注册当前 SUT 的上下文 Provider 与 Hook。"""
     # Provider 名称是 YAML ``requires`` 的稳定公共引用；实现细节完全留在本项目模块。
-    providers.register("shortlink.static", _static_provider)
-    providers.register("shortlink.authenticated", _authenticated_provider)
-    providers.register("shortlink.group", _group_provider)
-    providers.register("shortlink.created", _created_provider)
-    providers.register("shortlink.recycled", _recycled_provider)
-    providers.register("shortlink.visited", _visited_provider)
+    # Dependency metadata covers the Provider's whole lifecycle (setup + cleanup).
+    # Stage 6 reads these explicit relations; Core never parses project Python source.
+    providers.register("shortlink.static", _static_provider, requires=(), operations=())
+    providers.register(
+        "shortlink.authenticated",
+        _authenticated_provider,
+        requires=("shortlink.static",),
+        operations=("shortlinkUserLogin",),
+    )
+    providers.register(
+        "shortlink.group",
+        _group_provider,
+        requires=("shortlink.authenticated",),
+        operations=("shortlinkGroupList",),
+    )
+    providers.register(
+        "shortlink.created",
+        _created_provider,
+        requires=("shortlink.group",),
+        operations=("shortlinkCreate", "shortlinkRecycleSave", "shortlinkRecycleRemove"),
+    )
+    providers.register(
+        "shortlink.recycled",
+        _recycled_provider,
+        requires=("shortlink.group",),
+        operations=("shortlinkCreate", "shortlinkRecycleSave", "shortlinkRecycleRemove"),
+    )
+    providers.register(
+        "shortlink.visited",
+        _visited_provider,
+        requires=("shortlink.created",),
+        operations=("shortlinkRedirect",),
+    )
 
     # Hook 只在对应 Case 显式声明时运行，不把项目业务钩进所有框架请求。
     hooks.register("shortlink.capture_group", _capture_group_hook)
