@@ -1,6 +1,6 @@
 # AI 辅助接口自动化测试框架
 
-> 当前开发线：Stage 6.5 — Contract-driven Case Simplification
+> 当前开发线：Stage 6.5.1 — Failure Evidence Ordering & Allure Diagnostics
 > 当前验证：Framework tests `280 passed, 2 skipped`；Demo smoke/core/regression 均 `2 passed, 4 deselected`；真实 Shortlink 已完成一次 `/stats -> /stats-v2` Change-aware Regression 闭环。
 > 真实 SUT：Shortlink SaaS 只是第一个验证项目；Contract-bound Case 的 endpoint 现在由 `operation_id -> ApiContract` 统一解析。
 
@@ -564,13 +564,17 @@ Final Allure HTML
 
 ```text
 Request
-Response
+Response Metadata / Response Body
+Extract Evidence (rules / extracted / missing)
 Assertion
+Regression Selection Evidence
 Failure Cluster
 AI Triage
 Evidence refs
 Suggested checks
 ```
+
+当前确定性 Runtime 已直接写入 Allure：请求头、请求参数、响应元数据、响应结果、响应提取结果；AUTO 实执行 Case 还会附带 Regression Selection Evidence。Contract Diff / 全局 Selection / Coverage Gap 与后续 AI 结果统一进入最终 Allure 的整体编排，留在后续 Allure Enrichment 阶段实现，不改变当前 Pytest PASS/FAIL。
 
 Raw 测试结果不可被 AI 修改，AI 成功/失败也不能覆盖原 Pytest exit code。
 
@@ -732,7 +736,7 @@ Shortlink AUTO Preview           6 / 18 selected（Contract 无变化，仅 Smok
 compileall                       PASS
 ```
 
-Stage 6.5 完成 Contract-driven Case Simplification 后，Demo smoke/core/regression、all FULL、AUTO Preview/AUTO 真执行以及 Shortlink Coverage/Preview 均保持通过。真实 Windows Shortlink `/stats-v2` 的“Case 不再修改 endpoint”验证和最终 GitHub Actions/Jenkins 平台验收仍需用户侧执行，因此 Stage 6/6.5 暂不标记最终完成。
+Stage 6.5 完成 Contract-driven Case Simplification 后，真实 Windows Shortlink 已完成 `/stats -> /stats-v2 -> accept -> /stats` 双向 Contract 变化与 Baseline 生命周期验证，整个过程中 Contract-bound Case YAML 不再维护 endpoint；GitHub Actions 最新 `main` 已绿。Jenkins FULL 已能正常 checkout/运行真实 SUT，但连续两次稳定暴露 1 条诊断顺序问题（17/18），因此进入 Stage 6.5.1：修正“后置缺变量覆盖前置业务断言”，并补充 Allure 响应元数据/提取证据。Jenkins 三组合最终验收完成前 Stage 6/6.5 仍不关闭。
 
 ---
 

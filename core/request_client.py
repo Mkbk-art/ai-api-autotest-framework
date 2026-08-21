@@ -106,6 +106,12 @@ class RequestClient:
             files=files,
             **kwargs,
         )
+        # 状态码单独作为结构化元数据保留；响应 Body 继续沿用既有“响应结果”附件。
+        allure.attach(
+            json_module.dumps({"status_code": response.status_code}, ensure_ascii=False),
+            "响应元数据",
+            allure.attachment_type.JSON,
+        )
         try:
             body = response.json()
             attachment = json_module.dumps(sanitize(body), ensure_ascii=False, indent=2)

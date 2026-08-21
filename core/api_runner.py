@@ -8,14 +8,18 @@ from __future__ import annotations
 
 # Callable 用于把 sleep/monotonic 注入 polling，便于离线测试不真的等待。
 from typing import Any, Callable
+# json 只用于把提取证据结构化写入 Allure。
+import json as json_module
 # time 只服务显式 YAML polling；普通请求不会自动重试。
 import time
 
 from core.assertion_engine import Assertions
 from core.extractor import extract_from_response
 from core.request_client import RequestClient
-from core.variable_context import VariableContext
+from core.variable_context import VariableContext, VariableNotFoundError
+from utils import allure_compat as allure
 from utils.debugtalk import DebugTalk
+from utils.sanitizer import sanitize
 
 
 class ApiRunner:
@@ -179,6 +183,49 @@ class ApiRunner:
         # request_options 也允许使用 ``${变量}``，统一遵守框架的运行时替换规则。
         return self._replace_dynamic_params(raw_options)
 
+    def _assert_validations_in_order(
+        self,
+        validations: list[dict[str, Any]] | None,
+        response_body: Any,
+        status_code: int,
+        *,
+        headers: Any = None,
+        elapsed_seconds: float | None = None,
+    ) -> None:
+        """按 YAML 顺序解析并执行断言，避免后置缺变量遮蔽前置真实失败。
+
+        AssertionEngine 仍负责解释每一种断言；这里仅改变运行时变量解析边界。
+        每条规则在真正执行前才解析 ``${...}``。如果较早规则已经产生断言失败，
+        而较晚规则因缺少运行时变量无法解析，则优先报告已经确认的原始断言失败。
+        在没有缺变量时，仍会遍历全部规则并聚合失败，保持既有多差异报告能力。
+        """
+        failures: list[str] = []
+        for raw_rule in validations or []:
+            try:
+                resolved_rule = self._replace_dynamic_params(raw_rule)
+            except VariableNotFoundError:
+                if failures:
+                    details = "\n - ".join(failures)
+                    raise AssertionError(
+                        f"Assertions failed before a later runtime variable could be resolved:\n - {details}"
+                    ) from None
+                raise
+
+            try:
+                self.assertions.assert_all(
+                    [resolved_rule],
+                    response_body,
+                    status_code,
+                    headers=headers,
+                    elapsed_seconds=elapsed_seconds,
+                )
+            except AssertionError as exc:
+                failures.append(str(exc))
+
+        if failures:
+            details = "\n - ".join(failures)
+            raise AssertionError(f"Assertions failed in YAML order:\n - {details}")
+
     # 复杂工作流的“请求步骤”仍由 YAML 定义；Python 仅在步骤之间调用这个统一断言入口。
     def validate(self, validations: list[dict[str, Any]] | None) -> None:
         """执行一组不依赖当前 HTTP Response 的 YAML 数据源断言。
@@ -281,19 +328,29 @@ class ApiRunner:
             response_body = response.text
 
         # extract 只处理当前响应并写入 VariableContext；后续 Case/数据断言都从统一上下文取值。
-        if test_case.get("extract"):
-            extract_from_response(test_case["extract"], response.text, context=self.context)
-
-        # extract 已写入当前 VariableContext，现在再解析 validation，允许同一个 YAML Case
-        # 使用本次响应刚提取出的 token/id 等值做数据库和缓存一致性校验。
-        validations = self._replace_dynamic_params(test_case.get("validation", []))
+        extract_rules = test_case.get("extract")
+        if extract_rules:
+            extracted = extract_from_response(extract_rules, response.text, context=self.context)
+            # Allure 中保留声明规则、成功提取值和缺失变量，方便区分“接口业务失败”与
+            # “提取表达式未命中”。运行时值先脱敏，避免 token/credential 进入报告。
+            extract_evidence = {
+                "rules": dict(extract_rules),
+                "extracted": sanitize(extracted),
+                "missing": [name for name in extract_rules if name not in extracted],
+            }
+            allure.attach(
+                json_module.dumps(extract_evidence, ensure_ascii=False, indent=2, default=str),
+                "响应提取结果",
+                allure.attachment_type.JSON,
+            )
 
         # Requests 的 elapsed 可能在 Fake Response 中缺失，因此响应时间断言按可选值传入。
         elapsed = getattr(response, "elapsed", None)
         elapsed_seconds = elapsed.total_seconds() if elapsed is not None else None
-        # HTTP、JSON、Header、MySQL、Redis 等断言最终都由同一个 Assertions 实例解释。
-        self.assertions.assert_all(
-            validations,
+        # validation 按 YAML 顺序逐条做动态变量解析和断言。这样前置 HTTP/业务断言已经
+        # 失败时，后置 DB/Redis 规则的缺变量不会把真正根因替换成次生错误。
+        self._assert_validations_in_order(
+            test_case.get("validation", []),
             response_body,
             response.status_code,
             headers=getattr(response, "headers", None),

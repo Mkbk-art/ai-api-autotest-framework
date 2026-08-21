@@ -1,8 +1,8 @@
 # AI 辅助接口自动化测试框架项目计划书
 
-> **版本**：V4.4（Stage 6.5 Contract-driven Endpoint Ownership 完整收敛版）
+> **版本**：V4.5（Stage 6.5.1 Failure Evidence Ordering & Allure Diagnostics）
 > **更新日期**：2026-08-21
-> **当前阶段**：Stage 6.5 — Contract-driven Case Simplification（基于真实 Shortlink 变更验证暴露出的重复事实源问题进行架构收缩）
+> **当前阶段**：Stage 6.5.1 — Failure Evidence Ordering & Allure Diagnostics（真实 Jenkins FULL 暴露“次生缺变量覆盖原始业务失败”的通用诊断问题）
 > **项目定位**：Contract-driven, Change-aware, AI-assisted API Test Automation Framework
 > **维护规则**：每完成一个阶段或发生架构级决策，必须同步更新本计划书中“当前阶段”“该阶段问题与解决”“完成状态”和“总进度表”。不再在文档顶部持续堆叠长版本日志。
 
@@ -129,8 +129,8 @@ YAML 不演化为第二门编程语言。
 | Stage 3 | 真实 SUT 与 CI/CD 工程验证 | ✅ 已完成 |
 | Stage 4 | Declarative Case Runtime | ✅ 已完成 |
 | Stage 5 | Contract & Coverage Intelligence | ✅ 已完成并通过用户 Windows 本机复验 |
-| Stage 6 | Change-aware Smart Regression | 🟡 真实 Shortlink Local 变更闭环已验证；GitHub Actions / Jenkins 最终验收待完成 |
-| Stage 6.5 | Contract-driven Case Simplification | 🟡 当前实施 |
+| Stage 6 | Change-aware Smart Regression | 🟡 真实变更/反向变更/Baseline 生命周期已验证；GitHub Actions 已绿，Jenkins 最终验收进行中 |
+| Stage 6.5 | Contract-driven Case Simplification | 🟡 真实 Contract 单一 endpoint 事实源已验证；Stage 6.5.1 诊断修复完成后继续 Jenkins 最终验收 |
 | Stage 7 | AI Risk-based Test Design | ⏸ 暂停，Stage 6.5 完成后重新评估 |
 | Stage 8 | Failure Triage & Allure Enrichment | 🟡 已有 Evidence/AI 基础，完整阶段未完成 |
 | Stage 9 | 第二 SUT 与最终复用性证明 | ⏳ 未开始 |
@@ -1493,8 +1493,8 @@ compileall：✅ PASS
 用户 Windows Shortlink AUTO Preview：✅ 真实 `/stats -> /stats-v2` 识别 1 changed operation，18 eligible -> 7 selected
 用户 Windows Shortlink Drift 实执行：✅ 5 个无关 Smoke 通过，2 个旧 `/stats` Statistics Case 真实返回 404
 用户 Windows Shortlink Case 修复后实执行：✅ `/stats-v2` 真实返回 200，7 passed / 11 deselected
-GitHub Actions 真实平台：⏳ 待 Stage 6.5 完成后统一 push 验收
-Jenkins 真实平台：⏳ 待 Stage 6.5 完成后统一验收
+GitHub Actions 真实平台：✅ main 最新提交已真实运行并绿灯
+Jenkins 真实平台：🟡 SCM/代理已打通；FULL 连续两次 17/18，通过 CI 暴露 `shortlink.link.create.db_persistence` 的稳定诊断顺序问题
 ```
 
 **阶段状态：🟡 核心 Change-aware Regression 已在真实 Shortlink 后端完成一次“变更 -> 选中 -> 旧 Case 失败 -> Case 修复 -> 通过”的 Local 闭环；最终 CI 平台验收与 Stage 6.5 一并完成后关闭。**
@@ -1697,7 +1697,66 @@ AUTO 识别 1 个 PATH_CHANGED
 预计 7 selected / 11 deselected，且 Stats Case 真实请求 /stats-v2 并通过
 ```
 
-该 Windows 真实 SUT 验证通过后，再统一进行 GitHub Actions / Jenkins 最终验收；在此之前 Stage 7 继续暂停。
+用户 Windows 真实 SUT 已进一步完成：
+
+```text
+/stats -> /stats-v2
+Baseline /stats vs Current /stats-v2 -> 1 changed / 7 selected -> 真实执行通过
+accept baseline -> 0 changed / 6 Smoke Safety -> Preview + 真实执行通过
+/stats-v2 -> /stats（Case YAML 不改 endpoint）
+Baseline /stats-v2 vs Current /stats -> 1 changed / 7 selected -> 真实执行通过
+最终 Baseline 恢复 /stats -> unchanged 状态通过
+```
+
+GitHub Actions 在最新 `main` 上已绿。Jenkins SCM 代理问题也已解决，能够正常 fetch/checkout 最新 Jenkinsfile。Jenkins FULL 连续两次得到 **17 passed / 1 failed**，唯一失败均为 `shortlink.link.create.db_persistence`：创建接口 HTTP 200 后，后置 DB 断言中的 `${short_url}` 在整组 validation 预解析阶段抛 `VariableNotFoundError`，遮住更早的业务响应断言。
+
+## 6.5.8 Stage 6.5.1 — Failure Evidence Ordering & Allure Diagnostics
+
+### 问题
+
+旧执行顺序：
+
+```text
+HTTP Response
+↓
+extract
+↓
+一次性解析整组 validation 的所有 ${...}
+↓
+Assertions.assert_all(...)
+```
+
+当响应为 HTTP 200 但业务失败、`extract` 未得到 `short_url` 时，后置 DB 规则 `${short_url}` 会在真正执行 `$.code == "0"` 前抛错，导致次生 `VariableNotFoundError` 覆盖原始 API 业务失败。该问题与 Shortlink 无关，任何“响应断言 + extract + DB/Redis 动态变量断言”的第二 SUT 都可能遇到。
+
+### 修复原则
+
+1. 不加 POST 自动重试，不为了 Jenkins 绿而弱化真实失败；
+2. YAML 断言按声明顺序逐条做动态变量解析；
+3. AssertionEngine 仍是唯一断言解释器；
+4. 无缺变量时继续聚合多条断言失败；
+5. 后置规则缺变量时，如果前面已有确定的 Assertion Failure，优先报告原始断言；
+6. RequestClient 原有 Allure `响应结果` 保留，不重复造 Response Body 附件；
+7. 新增 Allure `响应元数据`（当前至少 status_code）；
+8. 有 `extract` 时新增脱敏的 `响应提取结果`，包含 rules / extracted / missing。
+
+### TDD 证据
+
+回归用例构造：HTTP 200、`code=B001`、`data=null`、声明 `short_url=$.data.fullShortUrl`，后置 `db_exists.params` 引用 `${short_url}`。
+
+RED：旧代码稳定抛 `VariableNotFoundError: short_url not found`，与 Jenkins #31/#32 一致。
+
+GREEN：修改后优先得到 `eq $.code expected='0' actual='B001'`，且 `short_url` 次生错误不再遮蔽原始失败。新增 Allure Extract Evidence 与 Response Metadata 两条测试也完成红 -> 绿。
+
+### 当前状态
+
+- 新增专项回归：3 passed；
+- Runner/Assertion/Context/Request/Shortlink Support 相关回归：51 passed；
+- Framework 全量 fresh verification：**284 passed, 2 skipped（286 collected）**；
+- 相关 Runner/Assertion/Context/Request/Shortlink Support 回归：**51 passed**；专项 Stage 6.5.1：**3 passed**；
+- `compileall`：PASS；Demo FULL：**6 passed**；Demo AUTO Preview：**2 / 6 selected**；Demo AUTO Real：**2 passed, 4 deselected**；
+- 用户侧下一步：应用 Stage 6.5.1 correction overlay，先本地验证，再 push；Jenkins FULL 再跑一次以暴露 `/create` 的真实业务 code/message；随后继续 AUTO Preview / AUTO Real。
+
+Stage 7 继续暂停，不在本修复中扩展 AI 功能。
 
 ---
 
